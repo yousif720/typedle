@@ -70,7 +70,7 @@ const typeIconUrls = Object.fromEntries(
     fairy: 'Fairy_icon_SV.png',
   }).map(([type, fileName]) => [
     type,
-    `https://archives.bulbagarden.net/wiki/Special:FilePath/${encodeURIComponent(fileName)}`,
+    `/type-icons/${fileName}`,
   ]),
 ) as Record<keyof typeof typeIconFiles, string>
 
