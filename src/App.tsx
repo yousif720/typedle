@@ -11,6 +11,22 @@ import {
   pokemonPool,
 } from './data/pokemon'
 
+type StreakState = {
+  current: number
+  best: number
+  lastSeed: string | null
+}
+
+type EvolutionStage = 'loading' | 'first' | 'middle' | 'final' | 'mega' | 'no-evolution-line'
+
+type EvolutionChainNode = {
+  species?: { name?: string }
+  evolves_to?: EvolutionChainNode[]
+  evolves_from_species?: { name?: string } | null
+}
+
+const streakStorageKey = 'typedle-streak-v1'
+
 const typeIconFiles = {
   normal: 'normal',
   fire: 'fire',
@@ -89,24 +105,35 @@ function formatTypeMultiplier(multiplier: number) {
   return '1x'
 }
 
-function renderTypeTiles(values: readonly InteractionClue[], className: string, showMultiplier = false) {
+function renderTypeTiles(
+  values: readonly InteractionClue[],
+  className: string,
+  labelMode: 'none' | 'multiplier' | 'neutral' | 'immune' = 'none',
+) {
   if (values.length === 0) {
     return renderStopSymbol('none')
   }
 
   return values.map((clue) => {
     const type = clue.attackType
-    const multiplierLabel = showMultiplier ? formatTypeMultiplier(clue.multiplier) : ''
+    const multiplierLabel =
+      labelMode === 'multiplier'
+        ? formatTypeMultiplier(clue.multiplier)
+        : labelMode === 'neutral'
+          ? '1x'
+          : labelMode === 'immune'
+            ? '0x'
+            : ''
 
     return (
       <span
-        key={type}
-        className={`tile ${className}${showMultiplier ? ' tile-with-multiplier' : ''}`}
-        title={showMultiplier ? `${type} ${multiplierLabel}` : type}
-        aria-label={showMultiplier ? `${type} ${multiplierLabel}` : type}
+        key={`${type}-${multiplierLabel}`}
+        className={`tile ${className}${labelMode !== 'none' ? ' tile-with-multiplier' : ''}`}
+        title={labelMode !== 'none' ? `${type} ${multiplierLabel}` : type}
+        aria-label={labelMode !== 'none' ? `${type} ${multiplierLabel}` : type}
       >
         <img className="type-icon" src={typeIconUrls[type as keyof typeof typeIconUrls]} alt="" aria-hidden="true" />
-        {showMultiplier ? <span className="tile-multiplier">{multiplierLabel}</span> : null}
+        {labelMode !== 'none' ? <span className="tile-multiplier">{multiplierLabel}</span> : null}
       </span>
     )
   })
@@ -140,6 +167,124 @@ function toPokemonSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
+function isMegaFormName(name: string) {
+  return /\bmega\b/i.test(name)
+}
+
+function renderEvolutionTile(stage: EvolutionStage) {
+  if (stage === 'loading') {
+    return renderPlaceholderTile()
+  }
+
+  const words = stage === 'no-evolution-line' ? ['No', 'Evolution', 'Line'] : [stage === 'mega' ? 'Mega' : stage.charAt(0).toUpperCase() + stage.slice(1)]
+
+  return (
+    <span className="tile tile-stage tile-revealed" aria-label={stage.replace(/-/g, ' ')}>
+      <span className="stage-stack">
+        {words.map((word) => (
+          <span key={word} className="stage-word">
+            {word}
+          </span>
+        ))}
+      </span>
+    </span>
+  )
+}
+
+function findSpeciesInChain(chain: EvolutionChainNode | undefined, speciesName: string): EvolutionChainNode | null {
+  if (!chain) {
+    return null
+  }
+
+  if (chain.species?.name === speciesName) {
+    return chain
+  }
+
+  for (const nextChain of chain.evolves_to ?? []) {
+    const found = findSpeciesInChain(nextChain, speciesName)
+
+    if (found) {
+      return found
+    }
+  }
+
+  return null
+}
+
+function resolveEvolutionStage(chain: EvolutionChainNode | undefined, speciesName: string): EvolutionStage {
+  const speciesNode = findSpeciesInChain(chain, speciesName)
+
+  if (!speciesNode) {
+    return 'no-evolution-line'
+  }
+
+  const hasPreEvolution = Boolean(speciesNode.evolves_from_species)
+  const hasEvolutions = (speciesNode.evolves_to?.length ?? 0) > 0
+
+  if (!hasPreEvolution && !hasEvolutions) {
+    return 'no-evolution-line'
+  }
+
+  if (!hasPreEvolution && hasEvolutions) {
+    return 'first'
+  }
+
+  if (hasPreEvolution && hasEvolutions) {
+    return 'middle'
+  }
+
+  return 'final'
+}
+
+function getPreviousSeed(seed: string) {
+  const date = new Date(`${seed}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
+}
+
+function loadStreakState(seed: string): StreakState {
+  if (typeof window === 'undefined') {
+    return { current: 0, best: 0, lastSeed: null }
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(streakStorageKey)
+
+    if (!rawValue) {
+      return { current: 0, best: 0, lastSeed: null }
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<StreakState>
+    const current = typeof parsedValue.current === 'number' ? parsedValue.current : 0
+    const best = typeof parsedValue.best === 'number' ? parsedValue.best : 0
+    const lastSeed = typeof parsedValue.lastSeed === 'string' ? parsedValue.lastSeed : null
+
+    if (!lastSeed) {
+      return { current, best, lastSeed: null }
+    }
+
+    if (lastSeed === seed || lastSeed === getPreviousSeed(seed)) {
+      return { current, best, lastSeed }
+    }
+
+    return { current: 0, best, lastSeed }
+  } catch {
+    return { current: 0, best: 0, lastSeed: null }
+  }
+}
+
+function saveStreakState(state: StreakState) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(streakStorageKey, JSON.stringify(state))
+}
+
+function formatGuessCount(count: number) {
+  return `${count} guess${count === 1 ? '' : 'es'}`
+}
+
 function App() {
   const [seed] = useState(() => getDailySeed())
   const [guessValue, setGuessValue] = useState('')
@@ -151,6 +296,9 @@ function App() {
   const [highlightedSuggestionIndex, setHighlightedSuggestionIndex] = useState(0)
   const [resultModalOpen, setResultModalOpen] = useState(false)
   const [resultImageUrl, setResultImageUrl] = useState('')
+  const [evolutionStage, setEvolutionStage] = useState<EvolutionStage>('loading')
+  const [streakState, setStreakState] = useState<StreakState>(() => loadStreakState(getDailySeed()))
+  const [copyStatus, setCopyStatus] = useState('')
   const [creditsOpen, setCreditsOpen] = useState(false)
 
   const target = useMemo(() => getPokemonBySeed(seed), [seed])
@@ -174,12 +322,107 @@ function App() {
   const neutralVisible = wrongGuessCount >= 1
   const resistanceVisible = wrongGuessCount >= 2
   const immunityVisible = wrongGuessCount >= 3
-  const abilityVisible = wrongGuessCount >= 4
+  const evolutionVisible = wrongGuessCount >= 4
+  const abilityVisible = wrongGuessCount >= 5
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEvolutionStage() {
+      if (isMegaFormName(target.name)) {
+        if (!cancelled) {
+          setEvolutionStage('mega')
+        }
+
+        return
+      }
+
+      try {
+        const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${toPokemonSlug(target.name)}`)
+
+        if (!pokemonResponse.ok) {
+          throw new Error('Unable to load Pokémon species')
+        }
+
+        const pokemonData = await pokemonResponse.json()
+        const speciesUrl = pokemonData?.species?.url
+
+        if (!speciesUrl) {
+          throw new Error('Missing species URL')
+        }
+
+        const speciesResponse = await fetch(speciesUrl)
+
+        if (!speciesResponse.ok) {
+          throw new Error('Unable to load species data')
+        }
+
+        const speciesData = await speciesResponse.json()
+        const evolutionChainUrl = speciesData?.evolution_chain?.url
+
+        if (!evolutionChainUrl) {
+          throw new Error('Missing evolution chain URL')
+        }
+
+        const evolutionResponse = await fetch(evolutionChainUrl)
+
+        if (!evolutionResponse.ok) {
+          throw new Error('Unable to load evolution chain')
+        }
+
+        const evolutionData = await evolutionResponse.json()
+        const resolvedStage = resolveEvolutionStage(evolutionData?.chain, speciesData.name)
+
+        if (!cancelled) {
+          setEvolutionStage(resolvedStage)
+        }
+      } catch {
+        if (!cancelled) {
+          setEvolutionStage('no-evolution-line')
+        }
+      }
+    }
+
+    setEvolutionStage('loading')
+    void loadEvolutionStage()
+
+    return () => {
+      cancelled = true
+    }
+  }, [target.name])
+
+  useEffect(() => {
+    if (!solved && !failed) {
+      return
+    }
+
+    const nextStreakState = solved
+      ? (() => {
+          const previousSeed = getPreviousSeed(seed)
+          const nextCurrent = streakState.lastSeed === previousSeed ? streakState.current + 1 : 1
+          return {
+            current: nextCurrent,
+            best: Math.max(streakState.best, nextCurrent),
+            lastSeed: seed,
+          }
+        })()
+      : {
+          current: 0,
+          best: streakState.best,
+          lastSeed: seed,
+        }
+
+    if (streakState.lastSeed !== seed || streakState.current !== nextStreakState.current) {
+      setStreakState(nextStreakState)
+      saveStreakState(nextStreakState)
+    }
+  }, [failed, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
 
   useEffect(() => {
     if (!solved && !failed) {
       setResultModalOpen(false)
       setResultImageUrl('')
+      setCopyStatus('')
       return
     }
 
@@ -220,6 +463,24 @@ function App() {
     }
   }, [failed, solved, target.name])
 
+  const guessCount = solved ? wrongGuessCount + 1 : wrongGuessCount
+  const shareText = [
+    `TypeDle ${seed}`,
+    solved ? `Solved in ${formatGuessCount(guessCount)}.` : `Failed after ${formatGuessCount(guessCount)}.`,
+    `Streak: ${streakState.current}`,
+    `Best streak: ${streakState.best}`,
+    `Answer: ${target.name}`,
+  ].join('\n')
+
+  const copyResults = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopyStatus('Copied results.')
+    } catch {
+      setCopyStatus('Copy failed.')
+    }
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -252,14 +513,19 @@ function App() {
     setWrongGuessCount(nextWrongGuessCount)
     setGuessValue('')
 
-    if (nextWrongGuessCount >= 5) {
+    if (nextWrongGuessCount >= 6) {
       setFailed(true)
       setMessage(`Fail. The answer was ${target.name}.`)
       return
     }
 
-    if (nextWrongGuessCount === 4) {
+    if (nextWrongGuessCount === 5) {
       setMessage('Wrong guess. The ability is now revealed.')
+      return
+    }
+
+    if (nextWrongGuessCount === 4) {
+      setMessage('Wrong guess. The evolution stage is now revealed.')
       return
     }
 
@@ -329,13 +595,13 @@ function App() {
         <section className="board" aria-label="Type clue board">
           <div className="row row-weakness">
             <span className="row-label">Weak to</span>
-            <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness', true)}</div>
+            <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness', 'multiplier')}</div>
           </div>
 
           <div className="row row-neutral">
             <span className="row-label">Neutral</span>
             <div className="tile-group">
-              {neutralVisible ? renderTypeTiles(neutral, 'tile-neutral tile-revealed') : renderPlaceholderTile()}
+              {neutralVisible ? renderTypeTiles(neutral, 'tile-neutral tile-revealed', 'neutral') : renderPlaceholderTile()}
             </div>
           </div>
 
@@ -343,7 +609,7 @@ function App() {
             <span className="row-label">Resists</span>
             <div className="tile-group">
               {resistanceVisible
-                ? renderTypeTiles(resistances, 'tile-resistance tile-revealed', true)
+                ? renderTypeTiles(resistances, 'tile-resistance tile-revealed', 'multiplier')
                 : renderPlaceholderTile()}
             </div>
           </div>
@@ -351,8 +617,13 @@ function App() {
           <div className="row row-immunity">
             <span className="row-label">Immune to</span>
             <div className="tile-group">
-              {immunityVisible ? renderTypeTiles(immunities, 'tile-immunity tile-revealed') : renderPlaceholderTile()}
+              {immunityVisible ? renderTypeTiles(immunities, 'tile-immunity tile-revealed', 'immune') : renderPlaceholderTile()}
             </div>
+          </div>
+
+          <div className="row row-stage">
+            <span className="row-label">Evolution stage</span>
+            <div className="tile-group">{evolutionVisible ? renderEvolutionTile(evolutionStage) : renderPlaceholderTile()}</div>
           </div>
 
           <div className="row row-ability">
@@ -423,6 +694,22 @@ function App() {
             <p className="result-copy">
               {solved ? 'You solved the puzzle.' : 'The round is over, but the answer is right there.'}
             </p>
+            <div className="result-share" aria-label="Result summary">
+              <div className="result-stat">
+                <span className="result-stat-label">Score</span>
+                <span className="result-stat-value">
+                  {solved ? `${formatGuessCount(guessCount)} solved` : `Lost after ${formatGuessCount(guessCount)}`}
+                </span>
+              </div>
+              <div className="result-stat">
+                <span className="result-stat-label">Streak</span>
+                <span className="result-stat-value">{streakState.current}</span>
+              </div>
+              <div className="result-stat">
+                <span className="result-stat-label">Best</span>
+                <span className="result-stat-value">{streakState.best}</span>
+              </div>
+            </div>
             <div className="result-visual">
               {resultImageUrl ? (
                 <img className="result-image" src={resultImageUrl} alt={target.name} />
@@ -430,9 +717,17 @@ function App() {
                 <div className="result-image result-image-loading">Loading render...</div>
               )}
             </div>
-            <button type="button" className="result-close" onClick={() => setResultModalOpen(false)}>
-              Close
-            </button>
+            <div className="result-actions">
+              <button type="button" className="result-share-button" onClick={copyResults}>
+                Copy results
+              </button>
+              <button type="button" className="result-close" onClick={() => setResultModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <p className="result-copy-status" aria-live="polite">
+              {copyStatus}
+            </p>
           </div>
         </div>
       )}
