@@ -393,36 +393,6 @@ function App() {
   }, [target.name])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const root = document.documentElement
-
-    const updateMobileScale = () => {
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-      const scale =
-        viewportWidth <= 640
-          ? Math.max(0.68, Math.min(1, (viewportHeight - 12) / 760))
-          : 1
-
-      root.style.setProperty('--typedle-mobile-scale', scale.toFixed(3))
-    }
-
-    updateMobileScale()
-    window.addEventListener('resize', updateMobileScale)
-    window.visualViewport?.addEventListener('resize', updateMobileScale)
-    window.visualViewport?.addEventListener('scroll', updateMobileScale)
-
-    return () => {
-      window.removeEventListener('resize', updateMobileScale)
-      window.visualViewport?.removeEventListener('resize', updateMobileScale)
-      window.visualViewport?.removeEventListener('scroll', updateMobileScale)
-    }
-  }, [])
-
-  useEffect(() => {
     if (!solved && !failed) {
       return
     }

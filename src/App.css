@@ -6,9 +6,9 @@
   --text-soft: #343434;
   --accent: #1f1f1f;
   --accent-soft: rgba(17, 17, 17, 0.06);
-  --typedle-mobile-scale: 1;
-  overflow: hidden;
-  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: visible;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -781,7 +781,7 @@
 
 @media (max-width: 640px) {
   .wordle-shell {
-    padding: 6px;
+    padding: 8px 8px 24px;
     align-items: stretch;
     justify-content: flex-start;
   }
@@ -790,17 +790,14 @@
     width: min(100%, 760px);
     padding: 0;
     border-radius: 0;
-    gap: 6px;
-    transform: scale(var(--typedle-mobile-scale));
-    transform-origin: top center;
-    will-change: transform;
+    gap: 8px;
   }
 
   .game-topbar {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 4px;
+    gap: 6px;
     min-height: 0;
   }
 
@@ -810,13 +807,13 @@
     left: auto;
     z-index: auto;
     order: -1;
-    width: min(100%, 360px);
+    width: min(100%, 380px);
     max-width: none;
     margin: 0 auto;
-    padding: 5px 8px;
+    padding: 6px 8px;
     justify-self: center;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
+    gap: 5px;
   }
 
   .wordle-header {
@@ -825,23 +822,23 @@
 
   .hud-chip {
     min-width: 0;
-    padding: 1px 3px;
+    padding: 2px 4px;
   }
 
   .hud-chip-label {
-    font-size: 0.48rem;
-    letter-spacing: 0.08em;
+    font-size: 0.52rem;
+    letter-spacing: 0.09em;
   }
 
   .hud-chip-value {
-    font-size: 0.76rem;
+    font-size: 0.8rem;
   }
 
   .subtitle {
     margin-left: auto;
     margin-right: auto;
-    max-width: 26ch;
-    font-size: 0.8rem;
+    max-width: 28ch;
+    font-size: 0.84rem;
   }
 
   .board-frame {
@@ -849,7 +846,7 @@
   }
 
   .credits-button {
-    top: 76px;
+    top: 72px;
     right: 12px;
     height: auto;
     padding: 7px 12px;
@@ -865,39 +862,39 @@
   }
 
   .board {
-    padding: 2px 0;
-    gap: 3px;
+    padding: 4px 0 0;
+    gap: 4px;
   }
 
   .row {
     gap: 8px;
-    padding: 4px 0;
+    padding: 5px 0;
   }
 
   .guess-bar {
     grid-template-columns: 1fr;
-    gap: 6px;
-    padding-top: 4px;
+    gap: 8px;
+    padding-top: 6px;
   }
 
   .tile {
-    height: 38px;
-    min-width: 38px;
+    height: 40px;
+    min-width: 40px;
   }
 
   .tile-stage {
-    min-width: 84px;
+    min-width: 88px;
   }
 
   .type-icon {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
   }
 
   .guess-picker {
     top: auto;
     bottom: calc(100% + 8px);
-    max-height: min(20vh, 160px);
+    max-height: min(22vh, 170px);
   }
 
   .credits-card {
