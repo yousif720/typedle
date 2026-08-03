@@ -6,6 +6,7 @@
   --text-soft: #343434;
   --accent: #1f1f1f;
   --accent-soft: rgba(17, 17, 17, 0.06);
+  --typedle-mobile-scale: 1;
   overflow: hidden;
   min-height: 100vh;
   display: flex;
@@ -790,6 +791,9 @@
     padding: 0;
     border-radius: 0;
     gap: 6px;
+    transform: scale(var(--typedle-mobile-scale));
+    transform-origin: top center;
+    will-change: transform;
   }
 
   .game-topbar {
