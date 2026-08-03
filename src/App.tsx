@@ -1214,20 +1214,17 @@ function App() {
       return
     }
 
+    if (!userCompletionsHydrated) {
+      setDayStateHydrated(false)
+      return
+    }
+
     setDayStateHydrated(false)
 
     const savedDayState = loadDayState(seed, currentUserKey)
     const completion = userCompletions[seed]
 
-    if (savedDayState) {
-      setGuessValue(savedDayState.guessValue)
-      setMessage(savedDayState.message)
-      setWrongGuessCount(savedDayState.wrongGuessCount)
-      setLastSubmittedPokemon(savedDayState.lastSubmittedPokemon)
-      setGuessHistory(savedDayState.guessHistory)
-      setSolved(savedDayState.solved)
-      setFailed(savedDayState.failed)
-    } else if (completion) {
+    if (completion) {
       const resolvedTargetPokemon = completion.targetPokemon || target.name
       const resolvedWrongGuessCount = Math.max(
         0,
@@ -1245,6 +1242,14 @@ function App() {
       setGuessHistory(completion.guessHistory)
       setSolved(completion.solved)
       setFailed(completion.failed || !completion.solved)
+    } else if (savedDayState) {
+      setGuessValue(savedDayState.guessValue)
+      setMessage(savedDayState.message)
+      setWrongGuessCount(savedDayState.wrongGuessCount)
+      setLastSubmittedPokemon(savedDayState.lastSubmittedPokemon)
+      setGuessHistory(savedDayState.guessHistory)
+      setSolved(savedDayState.solved)
+      setFailed(savedDayState.failed)
     } else {
       setGuessValue('')
       setMessage('')
@@ -1260,7 +1265,7 @@ function App() {
     setCopyStatus('')
     setRewindStatus('')
     setDayStateHydrated(true)
-  }, [currentUserKey, seed, target.name, userCompletions])
+  }, [currentUserKey, seed, target.name, userCompletions, userCompletionsHydrated])
 
   useEffect(() => {
     if (!currentUserKey || !dayStateHydrated) {
