@@ -886,6 +886,28 @@
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.12em;
+.result-stat-guesses {
+  grid-column: 1 / -1;
+  align-items: center;
+}
+.result-guess-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: center;
+}
+.result-guess-item {
+  min-width: min(180px, 100%);
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(239, 244, 248, 0.9);
+  border: 1px solid rgba(24, 36, 52, 0.08);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
   text-transform: uppercase;
 }
 

@@ -84,6 +84,7 @@
           "attemptsUsed": 3,
           "guessedPokemon": "",
           "targetPokemon": "",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:18:22.6042047Z"
         }
       }
@@ -123,6 +124,7 @@
           "attemptsUsed": 4,
           "guessedPokemon": "",
           "targetPokemon": "",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:20:54.1083305Z"
         }
       }
@@ -159,6 +161,7 @@
           "attemptsUsed": 4,
           "guessedPokemon": "Bulbasaur",
           "targetPokemon": "Bulbasaur",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:21:24.0428412Z"
         }
       }
@@ -195,6 +198,7 @@
           "attemptsUsed": 3,
           "guessedPokemon": "Bulbasaur",
           "targetPokemon": "Bulbasaur",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:30:14.177Z"
         }
       }
@@ -231,6 +235,7 @@
           "attemptsUsed": 2,
           "guessedPokemon": "Mareep",
           "targetPokemon": "Mareep",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:31:08.313Z"
         }
       }
@@ -267,6 +272,7 @@
           "attemptsUsed": 2,
           "guessedPokemon": "Mareep",
           "targetPokemon": "Mareep",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:31:25.463Z"
         }
       }
@@ -303,6 +309,7 @@
           "attemptsUsed": 2,
           "guessedPokemon": "Mareep",
           "targetPokemon": "Mareep",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:31:35.871Z"
         }
       }
@@ -339,7 +346,86 @@
           "attemptsUsed": 2,
           "guessedPokemon": "Mareep",
           "targetPokemon": "Mareep",
+          "guessHistory": [],
           "completedAt": "2026-08-03T18:32:14.450Z"
+        }
+      }
+    },
+    "smoketest_932ef3bb": {
+      "username": "smoketest_932ef3bb",
+      "passwordHash": "test-hash",
+      "createdAt": "2026-08-03T18:43:42.945Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 3,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "guessHistory": [],
+          "completedAt": "2026-08-03T20:43:42.9471565+02:00"
+        }
+      }
+    },
+    "smoketest_e4b62f1c": {
+      "username": "smoketest_e4b62f1c",
+      "passwordHash": "test-hash",
+      "createdAt": "2026-08-03T18:44:24.853Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 3,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "guessHistory": [
+            "Pikachu",
+            "Eevee",
+            "Mareep"
+          ],
+          "completedAt": "2026-08-03T20:44:24.8597477+02:00"
         }
       }
     }

@@ -68,6 +68,9 @@ function sanitizeCompletion(rawCompletion, seed) {
     : 1
   const guessedPokemon = typeof completion.guessedPokemon === 'string' ? completion.guessedPokemon : ''
   const targetPokemon = typeof completion.targetPokemon === 'string' ? completion.targetPokemon : ''
+  const guessHistory = Array.isArray(completion.guessHistory)
+    ? completion.guessHistory.filter((value) => typeof value === 'string')
+    : []
   const completedAt = typeof completion.completedAt === 'string' ? completion.completedAt : new Date(0).toISOString()
 
   return {
@@ -77,6 +80,7 @@ function sanitizeCompletion(rawCompletion, seed) {
     attemptsUsed,
     guessedPokemon,
     targetPokemon,
+    guessHistory,
     completedAt,
   }
 }
@@ -516,6 +520,9 @@ app.post('/api/auth/users/:userKey/completions', async (req, res) => {
   const attemptsUsed = req.body?.attemptsUsed
   const guessedPokemon = typeof req.body?.guessedPokemon === 'string' ? req.body.guessedPokemon : ''
   const targetPokemon = typeof req.body?.targetPokemon === 'string' ? req.body.targetPokemon : ''
+  const guessHistory = Array.isArray(req.body?.guessHistory)
+    ? req.body.guessHistory.filter((value) => typeof value === 'string')
+    : []
   const completedAt = typeof req.body?.completedAt === 'string' ? req.body.completedAt : new Date().toISOString()
 
   if (!seedPattern.test(seed)) {
@@ -555,6 +562,7 @@ app.post('/api/auth/users/:userKey/completions', async (req, res) => {
       attemptsUsed,
       guessedPokemon,
       targetPokemon,
+      guessHistory,
       completedAt,
     },
     seed,

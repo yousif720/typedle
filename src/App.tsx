@@ -45,6 +45,7 @@ type DayState = {
   solved: boolean
   failed: boolean
   lastSubmittedPokemon: string
+  guessHistory: string[]
 }
 
 type UserProfile = {
@@ -59,6 +60,7 @@ type UserCompletion = {
   attemptsUsed: number
   guessedPokemon: string
   targetPokemon: string
+  guessHistory: string[]
   completedAt: string
 }
 
@@ -638,6 +640,9 @@ async function fetchUserCompletionsFromApi(userKey: string): Promise<UserComplet
     const attemptsUsed = typeof entryValue.attemptsUsed === 'number' ? Math.max(1, Math.min(6, entryValue.attemptsUsed)) : 1
     const guessedPokemon = typeof entryValue.guessedPokemon === 'string' ? entryValue.guessedPokemon : ''
     const targetPokemon = typeof entryValue.targetPokemon === 'string' ? entryValue.targetPokemon : ''
+    const guessHistory = Array.isArray(entryValue.guessHistory)
+      ? entryValue.guessHistory.filter((value): value is string => typeof value === 'string')
+      : []
     const completedAt = typeof entryValue.completedAt === 'string' ? entryValue.completedAt : new Date(0).toISOString()
 
     completions[entrySeed] = {
@@ -647,6 +652,7 @@ async function fetchUserCompletionsFromApi(userKey: string): Promise<UserComplet
       attemptsUsed,
       guessedPokemon,
       targetPokemon,
+      guessHistory,
       completedAt,
     }
   }
@@ -684,6 +690,9 @@ async function submitUserCompletionToApi(userKey: string, completion: UserComple
         : 1,
     guessedPokemon: typeof payload.completion.guessedPokemon === 'string' ? payload.completion.guessedPokemon : '',
     targetPokemon: typeof payload.completion.targetPokemon === 'string' ? payload.completion.targetPokemon : '',
+    guessHistory: Array.isArray(payload.completion.guessHistory)
+      ? payload.completion.guessHistory.filter((value): value is string => typeof value === 'string')
+      : [],
     completedAt: typeof payload.completion.completedAt === 'string' ? payload.completion.completedAt : new Date(0).toISOString(),
   }
 
@@ -856,6 +865,9 @@ function loadDayState(seed: string, userKey: string): DayState | null {
       message: parsedValue.message,
       wrongGuessCount: Math.max(0, Math.min(6, parsedValue.wrongGuessCount)),
       lastSubmittedPokemon: typeof parsedValue.lastSubmittedPokemon === 'string' ? parsedValue.lastSubmittedPokemon : '',
+      guessHistory: Array.isArray(parsedValue.guessHistory)
+        ? parsedValue.guessHistory.filter((value): value is string => typeof value === 'string')
+        : [],
       solved: parsedValue.solved,
       failed: parsedValue.failed,
     }
@@ -950,6 +962,7 @@ function App() {
   const [message, setMessage] = useState('')
   const [wrongGuessCount, setWrongGuessCount] = useState(0)
   const [lastSubmittedPokemon, setLastSubmittedPokemon] = useState('')
+  const [guessHistory, setGuessHistory] = useState<string[]>([])
   const [solved, setSolved] = useState(false)
   const [failed, setFailed] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -969,6 +982,7 @@ function App() {
   const [rewindDate, setRewindDate] = useState(seed)
   const [rewindStatus, setRewindStatus] = useState('')
   const [dayStateHydrated, setDayStateHydrated] = useState(false)
+  const [userCompletionsHydrated, setUserCompletionsHydrated] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [authUsername, setAuthUsername] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -991,7 +1005,8 @@ function App() {
       .filter((pokemon) => normalizePokemonName(pokemon.name).includes(normalizedGuess))
       .slice(0, 8)
   }, [guessValue])
-  const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed
+  const isAccountSyncing = Boolean(currentUserKey) && !userCompletionsHydrated
+  const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed && !isAccountSyncing
 
   const evolutionVisible = wrongGuessCount >= 1
   const resistanceVisible = wrongGuessCount >= 2
@@ -1081,6 +1096,7 @@ function App() {
       setStreakState({ current: 0, best: 0, lastSeed: null })
       setUserStats(createEmptyUserStats())
       setUserCompletions({})
+      setUserCompletionsHydrated(true)
       return
     }
 
@@ -1089,11 +1105,13 @@ function App() {
     setStreakState({ current: 0, best: 0, lastSeed: null })
     setUserStats(createEmptyUserStats())
     setUserCompletions({})
+    setUserCompletionsHydrated(false)
     setSeed(todaySeed)
   }, [currentUserKey, todaySeed])
 
   useEffect(() => {
     if (!currentUserKey) {
+      setUserCompletionsHydrated(true)
       return
     }
 
@@ -1140,10 +1158,12 @@ function App() {
 
         if (!cancelled) {
           setUserCompletions(completions)
+          setUserCompletionsHydrated(true)
         }
       } catch {
         if (!cancelled) {
           setUserCompletions({})
+          setUserCompletionsHydrated(true)
         }
       }
     }
@@ -1181,6 +1201,7 @@ function App() {
       setMessage('')
       setWrongGuessCount(0)
       setLastSubmittedPokemon('')
+      setGuessHistory([])
       setSolved(false)
       setFailed(false)
       setPickerOpen(false)
@@ -1203,6 +1224,7 @@ function App() {
       setMessage(savedDayState.message)
       setWrongGuessCount(savedDayState.wrongGuessCount)
       setLastSubmittedPokemon(savedDayState.lastSubmittedPokemon)
+      setGuessHistory(savedDayState.guessHistory)
       setSolved(savedDayState.solved)
       setFailed(savedDayState.failed)
     } else if (completion) {
@@ -1220,6 +1242,7 @@ function App() {
       )
       setWrongGuessCount(resolvedWrongGuessCount)
       setLastSubmittedPokemon(completion.guessedPokemon || '')
+      setGuessHistory(completion.guessHistory)
       setSolved(completion.solved)
       setFailed(completion.failed || !completion.solved)
     } else {
@@ -1227,6 +1250,7 @@ function App() {
       setMessage('')
       setWrongGuessCount(0)
       setLastSubmittedPokemon('')
+      setGuessHistory([])
       setSolved(false)
       setFailed(false)
     }
@@ -1250,10 +1274,11 @@ function App() {
       message,
       wrongGuessCount,
       lastSubmittedPokemon,
+      guessHistory,
       solved,
       failed,
     })
-  }, [currentUserKey, dayStateHydrated, failed, guessValue, lastSubmittedPokemon, message, seed, solved, wrongGuessCount])
+  }, [currentUserKey, dayStateHydrated, failed, guessHistory, guessValue, lastSubmittedPokemon, message, seed, solved, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -1419,6 +1444,7 @@ function App() {
       attemptsUsed,
       guessedPokemon: lastSubmittedPokemon,
       targetPokemon: target.name,
+      guessHistory,
       completedAt: new Date().toISOString(),
     }
 
@@ -1459,7 +1485,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [currentUserKey, failed, lastSubmittedPokemon, seed, solved, target.name, userCompletions, wrongGuessCount])
+  }, [currentUserKey, failed, guessHistory, lastSubmittedPokemon, seed, solved, target.name, userCompletions, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -1608,6 +1634,23 @@ function App() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    if (isAccountSyncing) {
+      setMessage('Syncing your account history...')
+      return
+    }
+
+    if (currentUserKey && userCompletions[seed]) {
+      const completion = userCompletions[seed]
+      const resolvedTargetPokemon = completion.targetPokemon || target.name
+      setMessage(completion.solved ? `Solved. ${resolvedTargetPokemon} is correct.` : `Fail. The answer was ${resolvedTargetPokemon}.`)
+      setSolved(completion.solved)
+      setFailed(completion.failed || !completion.solved)
+      setWrongGuessCount(Math.max(0, Math.min(6, completion.solved ? completion.attemptsUsed - 1 : completion.attemptsUsed)))
+      setLastSubmittedPokemon(completion.guessedPokemon || '')
+      setGuessHistory(completion.guessHistory)
+      return
+    }
+
     if (solved || failed) {
       return
     }
@@ -1627,6 +1670,7 @@ function App() {
     }
 
     setLastSubmittedPokemon(pokemon.name)
+    setGuessHistory((currentHistory) => [...currentHistory, pokemon.name])
 
     if (pokemon.name === target.name) {
       setSolved(true)
@@ -1912,7 +1956,7 @@ function App() {
               id="pokemon-guess"
               autoComplete="off"
               spellCheck={false}
-              disabled={solved || failed}
+              disabled={solved || failed || isAccountSyncing}
               value={guessValue}
               onFocus={() => setPickerOpen(true)}
               onBlur={() => {
@@ -1958,13 +2002,13 @@ function App() {
               <path d="M7.5 3.8v3.4M16.5 3.8v3.4M3.8 9.2h16.4" />
             </svg>
           </button>
-          <button type="submit" className="guess-submit">
+          <button type="submit" className="guess-submit" disabled={solved || failed || isAccountSyncing}>
             Guess
           </button>
         </form>
 
         <p className="status" aria-live="polite">
-          {message || (solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
+          {message || (isAccountSyncing ? 'Syncing your account history...' : solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
         </p>
       </div>
 
@@ -2094,17 +2138,17 @@ function App() {
                   {solved ? `${formatGuessCount(guessCount)} solved` : `Lost after ${formatGuessCount(guessCount)}`}
                 </span>
               </div>
-              <div className="result-stat">
-                <span className="result-stat-label">Streak</span>
-                <span className="result-stat-value">{streakState.current}</span>
-              </div>
-              <div className="result-stat">
-                <span className="result-stat-label">Best</span>
-                <span className="result-stat-value">{streakState.best}</span>
-              </div>
-              <div className="result-stat">
-                <span className="result-stat-label">Your guess</span>
-                <span className="result-stat-value">{lastSubmittedPokemon || 'N/A'}</span>
+              <div className="result-stat result-stat-guesses">
+                <span className="result-stat-label">Your guesses</span>
+                <div className="result-guess-list" aria-label="Your guesses list">
+                  {guessHistory.length > 0
+                    ? guessHistory.map((guessName, guessIndex) => (
+                        <span key={`${guessName}-${guessIndex}`} className="result-guess-item">
+                          {guessName}
+                        </span>
+                      ))
+                    : <span className="result-guess-item">N/A</span>}
+                </div>
               </div>
             </div>
             <div className="result-distribution" aria-label="Guess distribution">
