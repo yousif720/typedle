@@ -41,6 +41,46 @@ function createEmptyUsersStore() {
   }
 }
 
+function createEmptyStreakState() {
+  return {
+    current: 0,
+    best: 0,
+    lastSeed: null,
+  }
+}
+
+function sanitizeStreakState(rawState) {
+  const state = rawState && typeof rawState === 'object' ? rawState : {}
+
+  return {
+    current: Number.isFinite(state.current) ? Math.max(0, state.current) : 0,
+    best: Number.isFinite(state.best) ? Math.max(0, state.best) : 0,
+    lastSeed: typeof state.lastSeed === 'string' ? state.lastSeed : null,
+  }
+}
+
+function sanitizeCompletion(rawCompletion, seed) {
+  const completion = rawCompletion && typeof rawCompletion === 'object' ? rawCompletion : {}
+  const solved = Boolean(completion.solved)
+  const failed = Boolean(completion.failed)
+  const attemptsUsed = Number.isFinite(completion.attemptsUsed)
+    ? Math.max(1, Math.min(6, Number.parseInt(completion.attemptsUsed, 10)))
+    : 1
+  const guessedPokemon = typeof completion.guessedPokemon === 'string' ? completion.guessedPokemon : ''
+  const targetPokemon = typeof completion.targetPokemon === 'string' ? completion.targetPokemon : ''
+  const completedAt = typeof completion.completedAt === 'string' ? completion.completedAt : new Date(0).toISOString()
+
+  return {
+    seed,
+    solved,
+    failed,
+    attemptsUsed,
+    guessedPokemon,
+    targetPokemon,
+    completedAt,
+  }
+}
+
 function sanitizeStats(rawStats) {
   const baseStats = createEmptyStats()
   const stats = rawStats && typeof rawStats === 'object' ? rawStats : {}
@@ -98,15 +138,29 @@ function sanitizeUsersStore(rawStore) {
     const username = typeof value.username === 'string' ? value.username.trim() : ''
     const passwordHash = typeof value.passwordHash === 'string' ? value.passwordHash.trim() : ''
     const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date(0).toISOString()
+    const completions = value.completions && typeof value.completions === 'object' ? value.completions : {}
+    const streakState = sanitizeStreakState(value.streakState)
+    const stats = sanitizeStats(value.stats)
 
     if (!username || !passwordHash) {
       continue
+    }
+
+    const safeCompletions = {}
+
+    for (const [seed, rawCompletion] of Object.entries(completions)) {
+      if (typeof seed === 'string' && seedPattern.test(seed)) {
+        safeCompletions[seed] = sanitizeCompletion(rawCompletion, seed)
+      }
     }
 
     safeStore.users[userKey] = {
       username,
       passwordHash,
       createdAt,
+      streakState,
+      stats,
+      completions: safeCompletions,
     }
   }
 
@@ -292,6 +346,9 @@ app.post('/api/auth/register', async (req, res) => {
         username,
         passwordHash,
         createdAt: new Date().toISOString(),
+        streakState: createEmptyStreakState(),
+        stats: createEmptyStats(),
+        completions: {},
       },
     },
   }
@@ -353,6 +410,172 @@ app.get('/api/auth/users/:userKey', async (req, res) => {
       username: user.username,
     },
   })
+})
+
+app.get('/api/auth/users/:userKey/completions', async (req, res) => {
+  const userKey = normalizeUserKey(typeof req.params.userKey === 'string' ? req.params.userKey : '')
+
+  if (!userKey) {
+    res.status(400).json({ error: 'userKey is required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+
+  res.json({
+    userKey,
+    completions: user.completions ?? {},
+  })
+})
+
+app.get('/api/auth/users/:userKey/progress', async (req, res) => {
+  const userKey = normalizeUserKey(typeof req.params.userKey === 'string' ? req.params.userKey : '')
+
+  if (!userKey) {
+    res.status(400).json({ error: 'userKey is required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+
+  res.json({
+    userKey,
+    progress: {
+      streakState: sanitizeStreakState(user.streakState),
+      stats: sanitizeStats(user.stats),
+    },
+  })
+})
+
+app.put('/api/auth/users/:userKey/progress', async (req, res) => {
+  const userKey = normalizeUserKey(typeof req.params.userKey === 'string' ? req.params.userKey : '')
+
+  if (!userKey) {
+    res.status(400).json({ error: 'userKey is required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+
+  const incomingStreakState = req.body?.streakState
+  const incomingStats = req.body?.stats
+
+  const nextUser = {
+    ...user,
+    streakState: incomingStreakState ? sanitizeStreakState(incomingStreakState) : sanitizeStreakState(user.streakState),
+    stats: incomingStats ? sanitizeStats(incomingStats) : sanitizeStats(user.stats),
+  }
+
+  const nextUsersStore = {
+    ...usersStore,
+    users: {
+      ...usersStore.users,
+      [userKey]: nextUser,
+    },
+  }
+
+  await writeUsersStore(nextUsersStore)
+  res.json({
+    userKey,
+    progress: {
+      streakState: nextUser.streakState,
+      stats: nextUser.stats,
+    },
+  })
+})
+
+app.post('/api/auth/users/:userKey/completions', async (req, res) => {
+  const userKey = normalizeUserKey(typeof req.params.userKey === 'string' ? req.params.userKey : '')
+
+  if (!userKey) {
+    res.status(400).json({ error: 'userKey is required.' })
+    return
+  }
+
+  const seed = typeof req.body?.seed === 'string' ? req.body.seed : ''
+  const solved = req.body?.solved
+  const failed = req.body?.failed
+  const attemptsUsed = req.body?.attemptsUsed
+  const guessedPokemon = typeof req.body?.guessedPokemon === 'string' ? req.body.guessedPokemon : ''
+  const targetPokemon = typeof req.body?.targetPokemon === 'string' ? req.body.targetPokemon : ''
+  const completedAt = typeof req.body?.completedAt === 'string' ? req.body.completedAt : new Date().toISOString()
+
+  if (!seedPattern.test(seed)) {
+    res.status(400).json({ error: 'seed is required as YYYY-MM-DD.' })
+    return
+  }
+
+  if (typeof solved !== 'boolean' || typeof failed !== 'boolean') {
+    res.status(400).json({ error: 'solved and failed must be booleans.' })
+    return
+  }
+
+  if (!Number.isInteger(attemptsUsed) || attemptsUsed < 1 || attemptsUsed > 6) {
+    res.status(400).json({ error: 'attemptsUsed must be an integer from 1 to 6.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+
+  const existingCompletion = user.completions?.[seed]
+
+  if (existingCompletion) {
+    res.json({ completion: existingCompletion, deduped: true })
+    return
+  }
+
+  const nextCompletion = sanitizeCompletion(
+    {
+      solved,
+      failed,
+      attemptsUsed,
+      guessedPokemon,
+      targetPokemon,
+      completedAt,
+    },
+    seed,
+  )
+
+  const nextUsersStore = {
+    ...usersStore,
+    users: {
+      ...usersStore.users,
+      [userKey]: {
+        ...user,
+        completions: {
+          ...(user.completions ?? {}),
+          [seed]: nextCompletion,
+        },
+      },
+    },
+  }
+
+  await writeUsersStore(nextUsersStore)
+  res.status(201).json({ completion: nextCompletion, deduped: false })
 })
 
 const port = Number.parseInt(process.env.PORT ?? '8787', 10)

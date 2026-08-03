@@ -25,9 +25,7 @@ type EvolutionChainNode = {
   evolves_from_species?: { name?: string } | null
 }
 
-const streakStorageKeyPrefix = 'typedle-streak-v1-'
 const dailyAssignmentsStorageKeyPrefix = 'typedle-daily-pokemon-v1-'
-const userStatsStorageKeyPrefix = 'typedle-stats-v1-'
 const globalStatsStorageKey = 'typedle-global-stats-v1'
 const configuredStatsApiBaseUrl = import.meta.env.VITE_STATS_API_BASE_URL?.trim() ?? 'https://typedle.onrender.com'
 const globalStatsApiBaseUrl = configuredStatsApiBaseUrl.replace(/\/+$/g, '')
@@ -46,12 +44,25 @@ type DayState = {
   wrongGuessCount: number
   solved: boolean
   failed: boolean
+  lastSubmittedPokemon: string
 }
 
 type UserProfile = {
   userKey: string
   username: string
 }
+
+type UserCompletion = {
+  seed: string
+  solved: boolean
+  failed: boolean
+  attemptsUsed: number
+  guessedPokemon: string
+  targetPokemon: string
+  completedAt: string
+}
+
+type UserCompletionsMap = Record<string, UserCompletion>
 
 type GuessDistribution = {
   1: number
@@ -76,6 +87,11 @@ type GlobalStatsOutcome = {
   outcomeId: string
   solved: boolean
   attemptsUsed: number
+}
+
+type UserProgress = {
+  streakState: StreakState
+  stats: UserStats
 }
 
 const typeIconFiles = {
@@ -361,20 +377,12 @@ function normalizeUsername(username: string) {
   return username.trim().toLowerCase()
 }
 
-function getStreakStorageKey(userKey: string) {
-  return `${streakStorageKeyPrefix}${userKey}`
-}
-
 function getDailyAssignmentsStorageKey(userKey: string) {
   return `${dailyAssignmentsStorageKeyPrefix}${userKey}`
 }
 
 function getDayStateCookieName(seed: string, userKey: string) {
   return `${dayStateCookiePrefix}${userKey}-${seed}`
-}
-
-function getUserStatsStorageKey(userKey: string) {
-  return `${userStatsStorageKeyPrefix}${userKey}`
 }
 
 function coerceStats(rawStats: Partial<UserStats> | null | undefined): UserStats {
@@ -419,33 +427,6 @@ function createEmptyUserStats(): UserStats {
     totalWinningGuesses: 0,
     recordedSeeds: [],
   }
-}
-
-function loadUserStats(userKey: string): UserStats {
-  if (typeof window === 'undefined') {
-    return createEmptyUserStats()
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(getUserStatsStorageKey(userKey))
-
-    if (!rawValue) {
-      return createEmptyUserStats()
-    }
-
-    const parsedValue = JSON.parse(rawValue) as Partial<UserStats>
-    return coerceStats(parsedValue)
-  } catch {
-    return createEmptyUserStats()
-  }
-}
-
-function saveUserStats(userKey: string, stats: UserStats) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(getUserStatsStorageKey(userKey), JSON.stringify(stats))
 }
 
 function loadGlobalStatsCache(): Record<string, UserStats> {
@@ -633,6 +614,142 @@ async function loginUserWithApi(userKey: string, passwordHash: string): Promise<
   }
 }
 
+async function fetchUserCompletionsFromApi(userKey: string): Promise<UserCompletionsMap> {
+  const response = await fetch(`${authApiBasePath}/users/${encodeURIComponent(userKey)}/completions`)
+
+  if (!response.ok) {
+    throw new Error('Unable to load completion history.')
+  }
+
+  const payload = (await response.json()) as { completions?: Record<string, Partial<UserCompletion>> }
+  const completions: UserCompletionsMap = {}
+
+  if (!payload.completions || typeof payload.completions !== 'object') {
+    return completions
+  }
+
+  for (const [entrySeed, entryValue] of Object.entries(payload.completions)) {
+    if (!entryValue || typeof entryValue !== 'object') {
+      continue
+    }
+
+    const solved = Boolean(entryValue.solved)
+    const failed = Boolean(entryValue.failed)
+    const attemptsUsed = typeof entryValue.attemptsUsed === 'number' ? Math.max(1, Math.min(6, entryValue.attemptsUsed)) : 1
+    const guessedPokemon = typeof entryValue.guessedPokemon === 'string' ? entryValue.guessedPokemon : ''
+    const targetPokemon = typeof entryValue.targetPokemon === 'string' ? entryValue.targetPokemon : ''
+    const completedAt = typeof entryValue.completedAt === 'string' ? entryValue.completedAt : new Date(0).toISOString()
+
+    completions[entrySeed] = {
+      seed: entrySeed,
+      solved,
+      failed,
+      attemptsUsed,
+      guessedPokemon,
+      targetPokemon,
+      completedAt,
+    }
+  }
+
+  return completions
+}
+
+async function submitUserCompletionToApi(userKey: string, completion: UserCompletion): Promise<{ completion: UserCompletion, deduped: boolean }> {
+  const response = await fetch(`${authApiBasePath}/users/${encodeURIComponent(userKey)}/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(completion),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Unable to save completion.')
+  }
+
+  const payload = (await response.json()) as { completion?: Partial<UserCompletion>, deduped?: boolean }
+
+  if (!payload.completion || typeof payload.completion.seed !== 'string') {
+    throw new Error('Invalid completion response.')
+  }
+
+  const safeCompletion: UserCompletion = {
+    seed: payload.completion.seed,
+    solved: Boolean(payload.completion.solved),
+    failed: Boolean(payload.completion.failed),
+    attemptsUsed:
+      typeof payload.completion.attemptsUsed === 'number'
+        ? Math.max(1, Math.min(6, payload.completion.attemptsUsed))
+        : 1,
+    guessedPokemon: typeof payload.completion.guessedPokemon === 'string' ? payload.completion.guessedPokemon : '',
+    targetPokemon: typeof payload.completion.targetPokemon === 'string' ? payload.completion.targetPokemon : '',
+    completedAt: typeof payload.completion.completedAt === 'string' ? payload.completion.completedAt : new Date(0).toISOString(),
+  }
+
+  return {
+    completion: safeCompletion,
+    deduped: Boolean(payload.deduped),
+  }
+}
+
+function coerceStreakState(rawState: Partial<StreakState> | null | undefined): StreakState {
+  const state = rawState ?? {}
+
+  return {
+    current: typeof state.current === 'number' ? Math.max(0, state.current) : 0,
+    best: typeof state.best === 'number' ? Math.max(0, state.best) : 0,
+    lastSeed: typeof state.lastSeed === 'string' ? state.lastSeed : null,
+  }
+}
+
+async function fetchUserProgressFromApi(userKey: string): Promise<UserProgress> {
+  const response = await fetch(`${authApiBasePath}/users/${encodeURIComponent(userKey)}/progress`)
+
+  if (!response.ok) {
+    throw new Error('Unable to load user progress.')
+  }
+
+  const payload = (await response.json()) as {
+    progress?: {
+      streakState?: Partial<StreakState>
+      stats?: Partial<UserStats>
+    }
+  }
+
+  return {
+    streakState: coerceStreakState(payload.progress?.streakState),
+    stats: coerceStats(payload.progress?.stats),
+  }
+}
+
+async function saveUserProgressToApi(userKey: string, progress: Partial<UserProgress>): Promise<UserProgress> {
+  const response = await fetch(`${authApiBasePath}/users/${encodeURIComponent(userKey)}/progress`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(progress),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Unable to save user progress.')
+  }
+
+  const payload = (await response.json()) as {
+    progress?: {
+      streakState?: Partial<StreakState>
+      stats?: Partial<UserStats>
+    }
+  }
+
+  return {
+    streakState: coerceStreakState(payload.progress?.streakState),
+    stats: coerceStats(payload.progress?.stats),
+  }
+}
+
 async function hashPassword(password: string) {
   if (typeof window === 'undefined' || !window.crypto?.subtle) {
     throw new Error('Secure hashing is not available in this browser.')
@@ -644,45 +761,6 @@ async function hashPassword(password: string) {
   return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
-}
-
-function loadStreakState(seed: string, userKey: string): StreakState {
-  if (typeof window === 'undefined') {
-    return { current: 0, best: 0, lastSeed: null }
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(getStreakStorageKey(userKey))
-
-    if (!rawValue) {
-      return { current: 0, best: 0, lastSeed: null }
-    }
-
-    const parsedValue = JSON.parse(rawValue) as Partial<StreakState>
-    const current = typeof parsedValue.current === 'number' ? parsedValue.current : 0
-    const best = typeof parsedValue.best === 'number' ? parsedValue.best : 0
-    const lastSeed = typeof parsedValue.lastSeed === 'string' ? parsedValue.lastSeed : null
-
-    if (!lastSeed) {
-      return { current, best, lastSeed: null }
-    }
-
-    if (lastSeed === seed || lastSeed === getPreviousSeed(seed)) {
-      return { current, best, lastSeed }
-    }
-
-    return { current: 0, best, lastSeed }
-  } catch {
-    return { current: 0, best: 0, lastSeed: null }
-  }
-}
-
-function saveStreakState(state: StreakState, userKey: string) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(getStreakStorageKey(userKey), JSON.stringify(state))
 }
 
 function loadDailyAssignments(userKey: string): DailyAssignments {
@@ -777,6 +855,7 @@ function loadDayState(seed: string, userKey: string): DayState | null {
       guessValue: parsedValue.guessValue,
       message: parsedValue.message,
       wrongGuessCount: Math.max(0, Math.min(6, parsedValue.wrongGuessCount)),
+      lastSubmittedPokemon: typeof parsedValue.lastSubmittedPokemon === 'string' ? parsedValue.lastSubmittedPokemon : '',
       solved: parsedValue.solved,
       failed: parsedValue.failed,
     }
@@ -870,6 +949,7 @@ function App() {
   const [guessValue, setGuessValue] = useState('')
   const [message, setMessage] = useState('')
   const [wrongGuessCount, setWrongGuessCount] = useState(0)
+  const [lastSubmittedPokemon, setLastSubmittedPokemon] = useState('')
   const [solved, setSolved] = useState(false)
   const [failed, setFailed] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -880,6 +960,7 @@ function App() {
   const [originRegion, setOriginRegion] = useState('loading')
   const [streakState, setStreakState] = useState<StreakState>({ current: 0, best: 0, lastSeed: null })
   const [userStats, setUserStats] = useState<UserStats>(() => createEmptyUserStats())
+  const [userCompletions, setUserCompletions] = useState<UserCompletionsMap>({})
   const [globalStats, setGlobalStats] = useState<UserStats>(() => loadGlobalStatsForSeed(todaySeed))
   const [guestClientId] = useState(() => getOrCreateGuestClientId())
   const [copyStatus, setCopyStatus] = useState('')
@@ -931,11 +1012,13 @@ function App() {
         .map(([entrySeed, pokemonName]) => ({
           seed: entrySeed,
           pokemonName,
-          solved: currentUserKey ? (loadDayState(entrySeed, currentUserKey)?.solved ?? false) : false,
+          solved: currentUserKey
+            ? (userCompletions[entrySeed]?.solved ?? loadDayState(entrySeed, currentUserKey)?.solved ?? false)
+            : false,
         }))
         .sort((left, right) => right.seed.localeCompare(left.seed))
         .slice(0, 28),
-    [currentUserKey, dailyAssignments, todaySeed],
+    [currentUserKey, dailyAssignments, todaySeed, userCompletions],
   )
 
   useEffect(() => {
@@ -983,14 +1066,80 @@ function App() {
       setDailyAssignments({})
       setStreakState({ current: 0, best: 0, lastSeed: null })
       setUserStats(createEmptyUserStats())
+      setUserCompletions({})
       return
     }
 
     setDailyAssignments(loadDailyAssignments(currentUserKey))
-    setStreakState(loadStreakState(todaySeed, currentUserKey))
-    setUserStats(loadUserStats(currentUserKey))
+    // Logged-in streak and stats are sourced from API progress.
+    setStreakState({ current: 0, best: 0, lastSeed: null })
+    setUserStats(createEmptyUserStats())
+    setUserCompletions({})
     setSeed(todaySeed)
   }, [currentUserKey, todaySeed])
+
+  useEffect(() => {
+    if (!currentUserKey) {
+      return
+    }
+
+    const userKey = currentUserKey
+    let cancelled = false
+
+    async function hydrateUserProgress() {
+      try {
+        const progress = await fetchUserProgressFromApi(userKey)
+
+        if (cancelled) {
+          return
+        }
+
+        setStreakState(progress.streakState)
+        setUserStats(progress.stats)
+      } catch {
+        if (!cancelled) {
+          setStreakState({ current: 0, best: 0, lastSeed: null })
+          setUserStats(createEmptyUserStats())
+        }
+      }
+    }
+
+    void hydrateUserProgress()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserKey])
+
+  useEffect(() => {
+    if (!currentUserKey) {
+      return
+    }
+
+    const userKey = currentUserKey
+
+    let cancelled = false
+
+    async function hydrateCompletions() {
+      try {
+        const completions = await fetchUserCompletionsFromApi(userKey)
+
+        if (!cancelled) {
+          setUserCompletions(completions)
+        }
+      } catch {
+        if (!cancelled) {
+          setUserCompletions({})
+        }
+      }
+    }
+
+    void hydrateCompletions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserKey])
 
   useEffect(() => {
     if (!currentUserKey) {
@@ -1017,6 +1166,7 @@ function App() {
       setGuessValue('')
       setMessage('')
       setWrongGuessCount(0)
+      setLastSubmittedPokemon('')
       setSolved(false)
       setFailed(false)
       setPickerOpen(false)
@@ -1037,12 +1187,14 @@ function App() {
       setGuessValue(savedDayState.guessValue)
       setMessage(savedDayState.message)
       setWrongGuessCount(savedDayState.wrongGuessCount)
+      setLastSubmittedPokemon(savedDayState.lastSubmittedPokemon)
       setSolved(savedDayState.solved)
       setFailed(savedDayState.failed)
     } else {
       setGuessValue('')
       setMessage('')
       setWrongGuessCount(0)
+      setLastSubmittedPokemon('')
       setSolved(false)
       setFailed(false)
     }
@@ -1065,10 +1217,11 @@ function App() {
       guessValue,
       message,
       wrongGuessCount,
+      lastSubmittedPokemon,
       solved,
       failed,
     })
-  }, [currentUserKey, dayStateHydrated, failed, guessValue, message, seed, solved, wrongGuessCount])
+  }, [currentUserKey, dayStateHydrated, failed, guessValue, lastSubmittedPokemon, message, seed, solved, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -1149,6 +1302,8 @@ function App() {
       return
     }
 
+    const userKey = currentUserKey
+
     // If today's outcome was already recorded, do not mutate streak again on refresh.
     if (streakState.lastSeed === seed) {
       return
@@ -1176,7 +1331,7 @@ function App() {
       streakState.lastSeed !== nextStreakState.lastSeed
     ) {
       setStreakState(nextStreakState)
-      saveStreakState(nextStreakState, currentUserKey)
+      void saveUserProgressToApi(userKey, { streakState: nextStreakState }).catch(() => undefined)
     }
   }, [currentUserKey, failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
 
@@ -1184,6 +1339,8 @@ function App() {
     if (!currentUserKey || (!solved && !failed)) {
       return
     }
+
+    const userKey = currentUserKey
 
     if (userStats.recordedSeeds.includes(seed)) {
       return
@@ -1208,8 +1365,69 @@ function App() {
     }
 
     setUserStats(nextStats)
-    saveUserStats(currentUserKey, nextStats)
+    void saveUserProgressToApi(userKey, { stats: nextStats }).catch(() => undefined)
   }, [currentUserKey, failed, seed, solved, userStats, wrongGuessCount])
+
+  useEffect(() => {
+    if (!currentUserKey || (!solved && !failed)) {
+      return
+    }
+
+    const userKey = currentUserKey
+
+    if (userCompletions[seed]) {
+      return
+    }
+
+    const attemptsUsed = Math.max(1, Math.min(6, solved ? wrongGuessCount + 1 : wrongGuessCount))
+    const completionPayload: UserCompletion = {
+      seed,
+      solved,
+      failed,
+      attemptsUsed,
+      guessedPokemon: lastSubmittedPokemon,
+      targetPokemon: target.name,
+      completedAt: new Date().toISOString(),
+    }
+
+    let cancelled = false
+
+    async function persistCompletion() {
+      try {
+        const result = await submitUserCompletionToApi(userKey, completionPayload)
+
+        if (cancelled) {
+          return
+        }
+
+        setUserCompletions((currentCompletions) => {
+          if (currentCompletions[result.completion.seed]) {
+            return currentCompletions
+          }
+
+          return {
+            ...currentCompletions,
+            [result.completion.seed]: result.completion,
+          }
+        })
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        setUserCompletions((currentCompletions) => ({
+          ...currentCompletions,
+          [completionPayload.seed]: completionPayload,
+        }))
+      }
+    }
+
+    void persistCompletion()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserKey, failed, lastSubmittedPokemon, seed, solved, target.name, userCompletions, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -1375,6 +1593,8 @@ function App() {
       setMessage('That Pokémon is not in the roster yet.')
       return
     }
+
+    setLastSubmittedPokemon(pokemon.name)
 
     if (pokemon.name === target.name) {
       setSolved(true)
@@ -1849,6 +2069,10 @@ function App() {
               <div className="result-stat">
                 <span className="result-stat-label">Best</span>
                 <span className="result-stat-value">{streakState.best}</span>
+              </div>
+              <div className="result-stat">
+                <span className="result-stat-label">Your guess</span>
+                <span className="result-stat-value">{lastSubmittedPokemon || 'N/A'}</span>
               </div>
             </div>
             <div className="result-distribution" aria-label="Guess distribution">

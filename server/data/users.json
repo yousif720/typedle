@@ -3,7 +3,165 @@
     "apitest88617": {
       "username": "apitest88617",
       "passwordHash": "abc123hash",
-      "createdAt": "2026-08-03T17:59:48.335Z"
+      "createdAt": "2026-08-03T17:59:48.335Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {}
+    },
+    "completiontest51443": {
+      "username": "completiontest51443",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:17:57.853Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {}
+    },
+    "completiontest15868": {
+      "username": "completiontest15868",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:18:22.598Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 3,
+          "guessedPokemon": "",
+          "targetPokemon": "",
+          "completedAt": "2026-08-03T18:18:22.6042047Z"
+        }
+      }
+    },
+    "progresstest76656": {
+      "username": "progresstest76656",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:20:54.096Z",
+      "streakState": {
+        "current": 3,
+        "best": 5,
+        "lastSeed": "2026-08-03"
+      },
+      "stats": {
+        "played": 7,
+        "wins": 5,
+        "losses": 2,
+        "guessDistribution": {
+          "1": 1,
+          "2": 2,
+          "3": 1,
+          "4": 1,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 13,
+        "recordedSeeds": [
+          "2026-08-01",
+          "2026-08-02"
+        ]
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 4,
+          "guessedPokemon": "",
+          "targetPokemon": "",
+          "completedAt": "2026-08-03T18:20:54.1083305Z"
+        }
+      }
+    },
+    "progresstest51769": {
+      "username": "progresstest51769",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:21:24.036Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 4,
+          "guessedPokemon": "Bulbasaur",
+          "targetPokemon": "Bulbasaur",
+          "completedAt": "2026-08-03T18:21:24.0428412Z"
+        }
+      }
     }
   }
 }

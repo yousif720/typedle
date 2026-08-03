@@ -44,6 +44,29 @@ Per-day global stats are stored by seed, so each day has its own aggregate distr
 - Endpoint: `POST /api/auth/register`
 - Endpoint: `POST /api/auth/login`
 - Endpoint: `GET /api/auth/users/:userKey`
+- Endpoint: `GET /api/auth/users/:userKey/completions`
+- Endpoint: `POST /api/auth/users/:userKey/completions`
+
+`POST /api/auth/users/:userKey/completions` body:
+
+```json
+{
+	"seed": "2026-08-03",
+	"solved": true,
+	"failed": false,
+	"attemptsUsed": 3,
+	"guessedPokemon": "Bulbasaur",
+	"targetPokemon": "Bulbasaur",
+	"completedAt": "2026-08-03T18:25:00.000Z"
+}
+```
+
+Completion data is stored per user and keyed by day seed.
+
+- Endpoint: `GET /api/auth/users/:userKey/progress`
+- Endpoint: `PUT /api/auth/users/:userKey/progress`
+
+`PUT /api/auth/users/:userKey/progress` accepts partial payload with `streakState` and/or `stats`.
 
 Users are persisted in `server/data/users.json`.
 
