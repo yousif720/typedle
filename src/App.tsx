@@ -1617,6 +1617,7 @@ function App() {
   }, [failed, solved, target.name])
 
   const guessCount = solved ? wrongGuessCount + 1 : wrongGuessCount
+  const scoreValue = Math.max(0, 6 - wrongGuessCount)
   const shareText = [
     `TypeDle ${seed}`,
     solved ? `Solved in ${formatGuessCount(guessCount)}.` : `Failed after ${formatGuessCount(guessCount)}.`,
@@ -2135,11 +2136,9 @@ function App() {
               {solved ? 'You solved the puzzle.' : 'The round is over, but the answer is right there.'}
             </p>
             <div className="result-share" aria-label="Result summary">
-              <div className="result-stat">
+              <div className="result-stat result-stat-score">
                 <span className="result-stat-label">Score</span>
-                <span className="result-stat-value">
-                  {solved ? `${formatGuessCount(guessCount)} solved` : `Lost after ${formatGuessCount(guessCount)}`}
-                </span>
+                <span className="result-stat-value">{scoreValue}</span>
               </div>
               <div className="result-stat result-stat-guesses">
                 <span className="result-stat-label">Your guesses</span>
