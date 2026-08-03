@@ -1542,6 +1542,12 @@ function App() {
     setResultModalOpen(false)
   }
 
+  const openAuthModal = () => {
+    setAuthMode('login')
+    setAuthStatus('')
+    setAuthOpen(true)
+  }
+
   return (
     <main className="wordle-shell">
       <button type="button" className="credits-button" onClick={() => setCreditsOpen(true)}>
@@ -1552,15 +1558,7 @@ function App() {
           {`Logout ${currentUsername}`}
         </button>
       ) : (
-        <button
-          type="button"
-          className="login-button"
-          onClick={() => {
-            setAuthMode('login')
-            setAuthStatus('')
-            setAuthOpen(true)
-          }}
-        >
+        <button type="button" className="login-button" onClick={openAuthModal}>
           Login
         </button>
       )}
@@ -1568,7 +1566,22 @@ function App() {
       <div className="game-shell">
         <div className="game-topbar">
           <header className="wordle-header">
-            <div className="title-badge">Daily challenge</div>
+            <div className="mobile-header-actions" aria-label="Quick actions">
+              {isAuthenticated ? (
+                <button type="button" className="mobile-top-button" onClick={handleLogout}>
+                  Logout
+                </button>
+              ) : (
+                <button type="button" className="mobile-top-button" onClick={openAuthModal}>
+                  Login
+                </button>
+              )}
+              <div className="title-badge">Daily challenge</div>
+              <button type="button" className="mobile-top-button" onClick={() => setCreditsOpen(true)}>
+                Credits
+              </button>
+            </div>
+            <div className="desktop-title-badge title-badge">Daily challenge</div>
             <h1 className="sr-only">TypeDle</h1>
             <TypeDleLogo />
             <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
