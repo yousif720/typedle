@@ -27,7 +27,6 @@ export type PokemonEntry = {
 type AttackProfile = {
   weakness: PokemonType[]
   resistance: PokemonType[]
-  immunity: PokemonType[]
 }
 
 export type InteractionClue = {
@@ -43,92 +42,74 @@ const attackProfiles: Record<PokemonType, AttackProfile> = {
   normal: {
     weakness: [],
     resistance: ['rock', 'steel'],
-    immunity: ['ghost'],
   },
   fire: {
     weakness: ['grass', 'ice', 'bug', 'steel'],
     resistance: ['fire', 'water', 'rock', 'dragon'],
-    immunity: [],
   },
   water: {
     weakness: ['fire', 'ground', 'rock'],
     resistance: ['water', 'grass', 'dragon'],
-    immunity: [],
   },
   electric: {
     weakness: ['water', 'flying'],
     resistance: ['electric', 'grass', 'dragon'],
-    immunity: ['ground'],
   },
   grass: {
     weakness: ['water', 'ground', 'rock'],
     resistance: ['fire', 'grass', 'poison', 'flying', 'bug', 'dragon', 'steel'],
-    immunity: [],
   },
   ice: {
     weakness: ['grass', 'ground', 'flying', 'dragon'],
     resistance: ['fire', 'water', 'ice', 'steel'],
-    immunity: [],
   },
   fighting: {
     weakness: ['normal', 'ice', 'rock', 'dark', 'steel'],
     resistance: ['poison', 'flying', 'psychic', 'bug', 'fairy'],
-    immunity: ['ghost'],
   },
   poison: {
     weakness: ['grass', 'fairy'],
     resistance: ['poison', 'ground', 'rock', 'ghost'],
-    immunity: ['steel'],
   },
   ground: {
     weakness: ['fire', 'electric', 'poison', 'rock', 'steel'],
     resistance: ['grass', 'bug'],
-    immunity: ['flying'],
   },
   flying: {
     weakness: ['grass', 'fighting', 'bug'],
     resistance: ['electric', 'rock', 'steel'],
-    immunity: [],
   },
   psychic: {
     weakness: ['fighting', 'poison'],
     resistance: ['psychic', 'steel'],
-    immunity: ['dark'],
   },
   bug: {
     weakness: ['grass', 'psychic', 'dark'],
     resistance: ['fire', 'fighting', 'poison', 'flying', 'ghost', 'steel', 'fairy'],
-    immunity: [],
   },
   rock: {
     weakness: ['fire', 'ice', 'flying', 'bug'],
     resistance: ['fighting', 'ground', 'steel'],
-    immunity: [],
   },
   ghost: {
     weakness: ['psychic', 'ghost'],
     resistance: ['dark'],
-    immunity: ['normal'],
   },
   dragon: {
     weakness: ['dragon'],
     resistance: ['steel'],
-    immunity: ['fairy'],
   },
   dark: {
     weakness: ['psychic', 'ghost'],
     resistance: ['fighting', 'dark', 'fairy'],
-    immunity: [],
   },
   steel: {
     weakness: ['ice', 'rock', 'fairy'],
     resistance: ['fire', 'water', 'electric', 'steel'],
-    immunity: [],
   },
   fairy: {
     weakness: ['fighting', 'dragon', 'dark'],
     resistance: ['fire', 'poison', 'steel'],
-    immunity: [],
   },
 }
 
