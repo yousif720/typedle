@@ -2143,15 +2143,16 @@ function App() {
               </div>
               <div className="result-stat result-stat-guesses">
                 <span className="result-stat-label">Your guesses</span>
-                <div className="result-guess-list" aria-label="Your guesses list">
+                <ol className="result-guess-list" aria-label="Your guesses list">
                   {guessHistory.length > 0
                     ? guessHistory.map((guessName, guessIndex) => (
-                        <span key={`${guessName}-${guessIndex}`} className="result-guess-item">
-                          {guessName}
-                        </span>
+                        <li key={`${guessName}-${guessIndex}`} className="result-guess-item">
+                          <span className="result-guess-index">#{guessIndex + 1}</span>
+                          <strong className="result-guess-name">{guessName}</strong>
+                        </li>
                       ))
-                    : <span className="result-guess-item">N/A</span>}
-                </div>
+                    : <li className="result-guess-item"><strong className="result-guess-name">N/A</strong></li>}
+                </ol>
               </div>
             </div>
             <div className="result-distribution" aria-label="Guess distribution">

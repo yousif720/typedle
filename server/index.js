@@ -552,7 +552,48 @@ app.post('/api/auth/users/:userKey/completions', async (req, res) => {
   const existingCompletion = user.completions?.[seed]
 
   if (existingCompletion) {
-    res.json({ completion: existingCompletion, deduped: true })
+    const existingHistory = Array.isArray(existingCompletion.guessHistory)
+      ? existingCompletion.guessHistory.filter((value) => typeof value === 'string')
+      : []
+    const nextHistory = existingHistory.length > 0 ? existingHistory : guessHistory
+    const nextGuessedPokemon = existingCompletion.guessedPokemon || guessedPokemon
+    const nextTargetPokemon = existingCompletion.targetPokemon || targetPokemon
+    const shouldRepairCompletion =
+      nextHistory.length !== existingHistory.length ||
+      nextGuessedPokemon !== existingCompletion.guessedPokemon ||
+      nextTargetPokemon !== existingCompletion.targetPokemon
+
+    if (!shouldRepairCompletion) {
+      res.json({ completion: existingCompletion, deduped: true })
+      return
+    }
+
+    const repairedCompletion = sanitizeCompletion(
+      {
+        ...existingCompletion,
+        guessedPokemon: nextGuessedPokemon,
+        targetPokemon: nextTargetPokemon,
+        guessHistory: nextHistory,
+      },
+      seed,
+    )
+
+    const nextUsersStore = {
+      ...usersStore,
+      users: {
+        ...usersStore.users,
+        [userKey]: {
+          ...user,
+          completions: {
+            ...(user.completions ?? {}),
+            [seed]: repairedCompletion,
+          },
+        },
+      },
+    }
+
+    await writeUsersStore(nextUsersStore)
+    res.json({ completion: repairedCompletion, deduped: true })
     return
   }
 
