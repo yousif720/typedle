@@ -882,6 +882,9 @@
 }
 
 .result-stat-score {
+  grid-column: 2 / 3;
+  justify-self: center;
+  width: min(220px, 100%);
   justify-items: center;
   text-align: center;
 }
@@ -1235,6 +1238,12 @@
 
   .result-share {
     grid-template-columns: 1fr;
+  }
+
+  .result-stat-score {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
   }
 
   .result-modal {
