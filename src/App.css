@@ -127,6 +127,14 @@
   color: var(--text-strong);
 }
 
+.typedle-logo {
+  display: block;
+  width: clamp(210px, 32vw, 300px);
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 .subtitle {
   margin: 10px auto 0;
   max-width: 34ch;
@@ -959,8 +967,8 @@
     font-size: 0.64rem;
   }
 
-  .wordle-header h1 {
-    font-size: clamp(1.85rem, 9vw, 2.45rem);
+  .typedle-logo {
+    width: clamp(220px, 72vw, 292px);
   }
 
   .subtitle {

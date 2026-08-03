@@ -285,6 +285,48 @@ function formatGuessCount(count: number) {
   return `${count} guess${count === 1 ? '' : 'es'}`
 }
 
+function TypeDleLogo() {
+  return (
+    <svg className="typedle-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 110" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="stellarRainbow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#DFACA6" />
+          <stop offset="38%" stopColor="#A0C1BA" />
+          <stop offset="72%" stopColor="#8EA4B7" />
+          <stop offset="100%" stopColor="#AFC8A0" />
+        </linearGradient>
+        <linearGradient id="logoTextTone" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#121826" />
+          <stop offset="100%" stopColor="#222E3D" />
+        </linearGradient>
+      </defs>
+
+      <rect
+        x="6"
+        y="6"
+        width="368"
+        height="98"
+        rx="22"
+        fill="url(#stellarRainbow)"
+      />
+
+      <text
+        x="50%"
+        y="51.5%"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fontFamily="Segoe UI Variable Display, SF Pro Display, Avenir Next, Inter, sans-serif"
+        fontSize="48"
+        fontWeight="700"
+        letterSpacing="2"
+        fill="url(#logoTextTone)"
+      >
+        TYPEDLE
+      </text>
+    </svg>
+  )
+}
+
 function App() {
   const [seed] = useState(() => getDailySeed())
   const [guessValue, setGuessValue] = useState('')
@@ -590,7 +632,8 @@ function App() {
         <div className="game-topbar">
           <header className="wordle-header">
             <div className="title-badge">Daily challenge</div>
-            <h1>TypeDle</h1>
+            <h1 className="sr-only">TypeDle</h1>
+            <TypeDleLogo />
             <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
           </header>
 
