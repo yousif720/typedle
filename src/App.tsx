@@ -26,6 +26,19 @@ type EvolutionChainNode = {
 }
 
 const streakStorageKey = 'typedle-streak-v1'
+const dailyAssignmentsStorageKey = 'typedle-daily-pokemon-v1'
+const dayStateCookiePrefix = 'typedle-daystate-'
+const dayStateCookieLifetimeDays = 365
+
+type DailyAssignments = Record<string, string>
+
+type DayState = {
+  guessValue: string
+  message: string
+  wrongGuessCount: number
+  solved: boolean
+  failed: boolean
+}
 
 const typeIconFiles = {
   normal: 'normal',
@@ -345,6 +358,124 @@ function saveStreakState(state: StreakState) {
   window.localStorage.setItem(streakStorageKey, JSON.stringify(state))
 }
 
+function loadDailyAssignments(): DailyAssignments {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(dailyAssignmentsStorageKey)
+
+    if (!rawValue) {
+      return {}
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown
+
+    if (!parsedValue || typeof parsedValue !== 'object') {
+      return {}
+    }
+
+    const assignments: DailyAssignments = {}
+
+    for (const [seed, pokemonName] of Object.entries(parsedValue as Record<string, unknown>)) {
+      if (typeof seed === 'string' && typeof pokemonName === 'string' && seed.length > 0 && pokemonName.length > 0) {
+        assignments[seed] = pokemonName
+      }
+    }
+
+    return assignments
+  } catch {
+    return {}
+  }
+}
+
+function saveDailyAssignments(assignments: DailyAssignments) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(dailyAssignmentsStorageKey, JSON.stringify(assignments))
+}
+
+function setCookieValue(name: string, value: string, lifetimeDays: number) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + lifetimeDays)
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expiresAt.toUTCString()}; path=/; SameSite=Lax`
+}
+
+function getCookieValue(name: string) {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const entries = document.cookie.split(';')
+
+  for (const entry of entries) {
+    const trimmedEntry = entry.trim()
+
+    if (trimmedEntry.startsWith(`${name}=`)) {
+      return decodeURIComponent(trimmedEntry.slice(name.length + 1))
+    }
+  }
+
+  return null
+}
+
+function loadDayState(seed: string): DayState | null {
+  const rawValue = getCookieValue(`${dayStateCookiePrefix}${seed}`)
+
+  if (!rawValue) {
+    return null
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as Partial<DayState>
+
+    if (
+      typeof parsedValue.guessValue !== 'string' ||
+      typeof parsedValue.message !== 'string' ||
+      typeof parsedValue.wrongGuessCount !== 'number' ||
+      typeof parsedValue.solved !== 'boolean' ||
+      typeof parsedValue.failed !== 'boolean'
+    ) {
+      return null
+    }
+
+    return {
+      guessValue: parsedValue.guessValue,
+      message: parsedValue.message,
+      wrongGuessCount: Math.max(0, Math.min(6, parsedValue.wrongGuessCount)),
+      solved: parsedValue.solved,
+      failed: parsedValue.failed,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveDayState(seed: string, dayState: DayState) {
+  setCookieValue(`${dayStateCookiePrefix}${seed}`, JSON.stringify(dayState), dayStateCookieLifetimeDays)
+}
+
+function resolvePokemonForSeed(seed: string, assignments: DailyAssignments) {
+  const assignedName = assignments[seed]
+
+  if (assignedName) {
+    const assignedPokemon = pokemonLookup.get(normalizePokemonName(assignedName))
+
+    if (assignedPokemon) {
+      return assignedPokemon
+    }
+  }
+
+  return getPokemonBySeed(seed)
+}
+
 function formatGuessCount(count: number) {
   return `${count} guess${count === 1 ? '' : 'es'}`
 }
@@ -398,7 +529,9 @@ function TypeDleLogo() {
 }
 
 function App() {
-  const [seed] = useState(() => getDailySeed())
+  const [todaySeed] = useState(() => getDailySeed())
+  const [seed, setSeed] = useState(todaySeed)
+  const [dailyAssignments, setDailyAssignments] = useState<DailyAssignments>(() => loadDailyAssignments())
   const [guessValue, setGuessValue] = useState('')
   const [message, setMessage] = useState('')
   const [wrongGuessCount, setWrongGuessCount] = useState(0)
@@ -410,11 +543,15 @@ function App() {
   const [resultImageUrl, setResultImageUrl] = useState('')
   const [evolutionStage, setEvolutionStage] = useState<EvolutionStage>('loading')
   const [originRegion, setOriginRegion] = useState('loading')
-  const [streakState, setStreakState] = useState<StreakState>(() => loadStreakState(getDailySeed()))
+  const [streakState, setStreakState] = useState<StreakState>(() => loadStreakState(todaySeed))
   const [copyStatus, setCopyStatus] = useState('')
   const [creditsOpen, setCreditsOpen] = useState(false)
+  const [rewindOpen, setRewindOpen] = useState(false)
+  const [rewindDate, setRewindDate] = useState(seed)
+  const [rewindStatus, setRewindStatus] = useState('')
+  const [dayStateHydrated, setDayStateHydrated] = useState(false)
 
-  const target = useMemo(() => getPokemonBySeed(seed), [seed])
+  const target = useMemo(() => resolvePokemonForSeed(seed, dailyAssignments), [dailyAssignments, seed])
   const { weaknesses, resistances, immunities } = useMemo(
     () => getTypeSummary(target),
     [target],
@@ -432,12 +569,84 @@ function App() {
   }, [guessValue])
   const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed
 
-  const weaknessVisible = wrongGuessCount >= 1
+  const evolutionVisible = wrongGuessCount >= 1
   const resistanceVisible = wrongGuessCount >= 2
   const immunityVisible = wrongGuessCount >= 3
   const regionVisible = wrongGuessCount >= 4
   const abilityVisible = wrongGuessCount >= 5
   const guessesLeft = Math.max(0, 6 - wrongGuessCount)
+  const isTodayChallenge = seed === todaySeed
+  const rewindOptions = useMemo(
+    () =>
+      Object.entries(dailyAssignments)
+        .filter(([entrySeed]) => entrySeed < todaySeed)
+        .map(([entrySeed, pokemonName]) => ({
+          seed: entrySeed,
+          pokemonName,
+          solved: loadDayState(entrySeed)?.solved ?? false,
+        }))
+        .sort((left, right) => right.seed.localeCompare(left.seed))
+        .slice(0, 28),
+    [dailyAssignments, todaySeed],
+  )
+
+  useEffect(() => {
+    const resolvedPokemon = resolvePokemonForSeed(seed, dailyAssignments)
+
+    if (dailyAssignments[seed] === resolvedPokemon.name) {
+      return
+    }
+
+    const nextAssignments = {
+      ...dailyAssignments,
+      [seed]: resolvedPokemon.name,
+    }
+
+    setDailyAssignments(nextAssignments)
+    saveDailyAssignments(nextAssignments)
+  }, [dailyAssignments, seed])
+
+  useEffect(() => {
+    setDayStateHydrated(false)
+
+    const savedDayState = loadDayState(seed)
+
+    if (savedDayState) {
+      setGuessValue(savedDayState.guessValue)
+      setMessage(savedDayState.message)
+      setWrongGuessCount(savedDayState.wrongGuessCount)
+      setSolved(savedDayState.solved)
+      setFailed(savedDayState.failed)
+    } else {
+      setGuessValue('')
+      setMessage('')
+      setWrongGuessCount(0)
+      setSolved(false)
+      setFailed(false)
+    }
+
+    setPickerOpen(false)
+    setHighlightedSuggestionIndex(0)
+    setResultModalOpen(false)
+    setResultImageUrl('')
+    setCopyStatus('')
+    setRewindStatus('')
+    setDayStateHydrated(true)
+  }, [seed])
+
+  useEffect(() => {
+    if (!dayStateHydrated) {
+      return
+    }
+
+    saveDayState(seed, {
+      guessValue,
+      message,
+      wrongGuessCount,
+      solved,
+      failed,
+    })
+  }, [dayStateHydrated, failed, guessValue, message, seed, solved, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -514,7 +723,12 @@ function App() {
   }, [target.name])
 
   useEffect(() => {
-    if (!solved && !failed) {
+    if (!isTodayChallenge || (!solved && !failed)) {
+      return
+    }
+
+    // If today's outcome was already recorded, do not mutate streak again on refresh.
+    if (streakState.lastSeed === seed) {
       return
     }
 
@@ -534,11 +748,15 @@ function App() {
           lastSeed: seed,
         }
 
-    if (streakState.lastSeed !== seed || streakState.current !== nextStreakState.current) {
+    if (
+      streakState.current !== nextStreakState.current ||
+      streakState.best !== nextStreakState.best ||
+      streakState.lastSeed !== nextStreakState.lastSeed
+    ) {
       setStreakState(nextStreakState)
       saveStreakState(nextStreakState)
     }
-  }, [failed, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
+  }, [failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
 
   useEffect(() => {
     if (!solved && !failed) {
@@ -550,6 +768,8 @@ function App() {
 
     let cancelled = false
     const slug = toPokemonSlug(target.name)
+    setResultModalOpen(true)
+    setResultImageUrl('')
 
     async function loadRender() {
       try {
@@ -568,12 +788,10 @@ function App() {
 
         if (!cancelled) {
           setResultImageUrl(imageUrl)
-          setResultModalOpen(true)
         }
       } catch {
         if (!cancelled) {
           setResultImageUrl(`https://img.pokemondb.net/artwork/large/${slug}.jpg`)
-          setResultModalOpen(true)
         }
       }
     }
@@ -661,13 +879,39 @@ function App() {
       return
     }
 
-    setMessage('Wrong guess. The weakness row is now revealed.')
+    setMessage('Wrong guess. The evolution stage row is now revealed.')
   }
 
   const applySuggestion = (name: string) => {
     setGuessValue(name)
     setPickerOpen(false)
     setHighlightedSuggestionIndex(0)
+  }
+
+  const openRewindModal = () => {
+    setRewindDate(seed)
+    setRewindStatus('')
+    setRewindOpen(true)
+  }
+
+  const loadRewindDay = () => {
+    if (!rewindDate) {
+      setRewindStatus('Select a day to load.')
+      return
+    }
+
+    if (rewindDate > todaySeed) {
+      setRewindStatus('Choose today or a previous day.')
+      return
+    }
+
+    setSeed(rewindDate)
+    setRewindOpen(false)
+  }
+
+  const jumpToDay = (selectedSeed: string) => {
+    setSeed(selectedSeed)
+    setRewindOpen(false)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -738,16 +982,14 @@ function App() {
 
         <section className="board-frame">
           <div className="board" aria-label="Type clue board">
-            <div className="row row-stage">
-              <span className="row-label">Evolution stage</span>
-              <div className="tile-group">{renderEvolutionTile(evolutionStage)}</div>
-            </div>
-
             <div className="row row-weakness">
               <span className="row-label">Weak to</span>
-              <div className="tile-group">
-                {weaknessVisible ? renderTypeTiles(weaknesses, 'tile-weakness tile-revealed', 'multiplier') : renderPlaceholderTile()}
-              </div>
+              <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness tile-revealed', 'multiplier')}</div>
+            </div>
+
+            <div className="row row-stage">
+              <span className="row-label">Evolution stage</span>
+              <div className="tile-group">{evolutionVisible ? renderEvolutionTile(evolutionStage) : renderPlaceholderTile()}</div>
             </div>
 
             <div className="row row-resistance">
@@ -825,13 +1067,71 @@ function App() {
               </div>
             )}
           </div>
-          <button type="submit">Guess</button>
+          <button type="button" className="rewind-button" onClick={openRewindModal} aria-label="Open rewind day picker">
+            <svg className="rewind-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="3.5" y="5.5" width="17" height="15" rx="2.8" />
+              <path d="M7.5 3.8v3.4M16.5 3.8v3.4M3.8 9.2h16.4" />
+            </svg>
+          </button>
+          <button type="submit" className="guess-submit">Guess</button>
         </form>
 
         <p className="status" aria-live="polite">
           {message || (solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
         </p>
       </div>
+
+      {rewindOpen && (
+        <div className="result-modal rewind-modal" role="dialog" aria-modal="true" aria-labelledby="rewind-title">
+          <div className="result-backdrop" onClick={() => setRewindOpen(false)} />
+          <div className="result-card rewind-card">
+            <p className="result-eyebrow">Rewind</p>
+            <h2 id="rewind-title">Load a previous day</h2>
+            <p className="result-copy">Pick a past date to replay that day&apos;s challenge.</p>
+
+            <label className="rewind-date-label" htmlFor="rewind-date">
+              Day
+            </label>
+            <input
+              id="rewind-date"
+              className="rewind-date-input"
+              type="date"
+              value={rewindDate}
+              max={todaySeed}
+              onChange={(event) => setRewindDate(event.target.value)}
+            />
+
+            {rewindOptions.length > 0 && (
+              <div className="rewind-history" aria-label="Previously assigned days">
+                {rewindOptions.map((entry) => (
+                  <button
+                    key={entry.seed}
+                    type="button"
+                    className="rewind-history-button"
+                    onClick={() => jumpToDay(entry.seed)}
+                  >
+                    <span>{entry.seed}</span>
+                    <span>{entry.solved ? entry.pokemonName : 'Hidden'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="result-actions">
+              <button type="button" className="result-share-button" onClick={loadRewindDay}>
+                Load day
+              </button>
+              <button type="button" className="result-close" onClick={() => setRewindOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <p className="result-copy-status" aria-live="polite">
+              {rewindStatus}
+            </p>
+          </div>
+        </div>
+      )}
 
       {resultModalOpen && (
         <div className="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
