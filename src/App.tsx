@@ -25,10 +25,18 @@ type EvolutionChainNode = {
   evolves_from_species?: { name?: string } | null
 }
 
-const streakStorageKey = 'typedle-streak-v1'
-const dailyAssignmentsStorageKey = 'typedle-daily-pokemon-v1'
+const streakStorageKeyPrefix = 'typedle-streak-v1-'
+const dailyAssignmentsStorageKeyPrefix = 'typedle-daily-pokemon-v1-'
+const userStatsStorageKeyPrefix = 'typedle-stats-v1-'
+const globalStatsStorageKey = 'typedle-global-stats-v1'
+const configuredStatsApiBaseUrl = import.meta.env.VITE_STATS_API_BASE_URL?.trim() ?? ''
+const globalStatsApiBaseUrl = configuredStatsApiBaseUrl.replace(/\/+$/g, '')
+const globalStatsApiPath = `${globalStatsApiBaseUrl}/api/stats/global`
+const guestClientIdStorageKey = 'typedle-guest-client-id-v1'
 const dayStateCookiePrefix = 'typedle-daystate-'
 const dayStateCookieLifetimeDays = 365
+const usersStorageKey = 'typedle-users-v1'
+const currentUserStorageKey = 'typedle-current-user-v1'
 
 type DailyAssignments = Record<string, string>
 
@@ -38,6 +46,37 @@ type DayState = {
   wrongGuessCount: number
   solved: boolean
   failed: boolean
+}
+
+type StoredUser = {
+  username: string
+  passwordHash: string
+}
+
+type StoredUsers = Record<string, StoredUser>
+
+type GuessDistribution = {
+  1: number
+  2: number
+  3: number
+  4: number
+  5: number
+  6: number
+}
+
+type UserStats = {
+  played: number
+  wins: number
+  losses: number
+  guessDistribution: GuessDistribution
+  totalWinningGuesses: number
+  recordedSeeds: string[]
+}
+
+type GlobalStatsOutcome = {
+  outcomeId: string
+  solved: boolean
+  attemptsUsed: number
 }
 
 const typeIconFiles = {
@@ -319,13 +358,260 @@ function getPreviousSeed(seed: string) {
   return date.toISOString().slice(0, 10)
 }
 
-function loadStreakState(seed: string): StreakState {
+function normalizeUsername(username: string) {
+  return username.trim().toLowerCase()
+}
+
+function getStreakStorageKey(userKey: string) {
+  return `${streakStorageKeyPrefix}${userKey}`
+}
+
+function getDailyAssignmentsStorageKey(userKey: string) {
+  return `${dailyAssignmentsStorageKeyPrefix}${userKey}`
+}
+
+function getDayStateCookieName(seed: string, userKey: string) {
+  return `${dayStateCookiePrefix}${userKey}-${seed}`
+}
+
+function getUserStatsStorageKey(userKey: string) {
+  return `${userStatsStorageKeyPrefix}${userKey}`
+}
+
+function coerceStats(rawStats: Partial<UserStats> | null | undefined): UserStats {
+  const baseStats = createEmptyUserStats()
+  const stats = rawStats ?? {}
+
+  return {
+    played: typeof stats.played === 'number' ? stats.played : baseStats.played,
+    wins: typeof stats.wins === 'number' ? stats.wins : baseStats.wins,
+    losses: typeof stats.losses === 'number' ? stats.losses : baseStats.losses,
+    guessDistribution: {
+      1: typeof stats.guessDistribution?.[1] === 'number' ? stats.guessDistribution[1] : 0,
+      2: typeof stats.guessDistribution?.[2] === 'number' ? stats.guessDistribution[2] : 0,
+      3: typeof stats.guessDistribution?.[3] === 'number' ? stats.guessDistribution[3] : 0,
+      4: typeof stats.guessDistribution?.[4] === 'number' ? stats.guessDistribution[4] : 0,
+      5: typeof stats.guessDistribution?.[5] === 'number' ? stats.guessDistribution[5] : 0,
+      6: typeof stats.guessDistribution?.[6] === 'number' ? stats.guessDistribution[6] : 0,
+    },
+    totalWinningGuesses:
+      typeof stats.totalWinningGuesses === 'number'
+        ? stats.totalWinningGuesses
+        : baseStats.totalWinningGuesses,
+    recordedSeeds: Array.isArray(stats.recordedSeeds)
+      ? stats.recordedSeeds.filter((seed) => typeof seed === 'string')
+      : [],
+  }
+}
+
+function createEmptyUserStats(): UserStats {
+  return {
+    played: 0,
+    wins: 0,
+    losses: 0,
+    guessDistribution: {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+    },
+    totalWinningGuesses: 0,
+    recordedSeeds: [],
+  }
+}
+
+function loadUserStats(userKey: string): UserStats {
+  if (typeof window === 'undefined') {
+    return createEmptyUserStats()
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(getUserStatsStorageKey(userKey))
+
+    if (!rawValue) {
+      return createEmptyUserStats()
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<UserStats>
+    return coerceStats(parsedValue)
+  } catch {
+    return createEmptyUserStats()
+  }
+}
+
+function saveUserStats(userKey: string, stats: UserStats) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(getUserStatsStorageKey(userKey), JSON.stringify(stats))
+}
+
+function loadGlobalStats(): UserStats {
+  if (typeof window === 'undefined') {
+    return createEmptyUserStats()
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(globalStatsStorageKey)
+
+    if (!rawValue) {
+      return createEmptyUserStats()
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<UserStats>
+    return coerceStats(parsedValue)
+  } catch {
+    return createEmptyUserStats()
+  }
+}
+
+function saveGlobalStats(stats: UserStats) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(globalStatsStorageKey, JSON.stringify(stats))
+}
+
+function getOrCreateGuestClientId() {
+  if (typeof window === 'undefined') {
+    return 'guest-server'
+  }
+
+  const existingValue = window.localStorage.getItem(guestClientIdStorageKey)
+
+  if (existingValue) {
+    return existingValue
+  }
+
+  const generatedValue = window.crypto?.randomUUID?.() ?? `guest-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  window.localStorage.setItem(guestClientIdStorageKey, generatedValue)
+  return generatedValue
+}
+
+function applyOutcomeToStats(stats: UserStats, outcome: GlobalStatsOutcome) {
+  const safeStats = coerceStats(stats)
+
+  if (safeStats.recordedSeeds.includes(outcome.outcomeId)) {
+    return safeStats
+  }
+
+  return {
+    ...safeStats,
+    played: safeStats.played + 1,
+    wins: safeStats.wins + (outcome.solved ? 1 : 0),
+    losses: safeStats.losses + (outcome.solved ? 0 : 1),
+    totalWinningGuesses: safeStats.totalWinningGuesses + (outcome.solved ? outcome.attemptsUsed : 0),
+    recordedSeeds: [...safeStats.recordedSeeds, outcome.outcomeId],
+    guessDistribution: {
+      ...safeStats.guessDistribution,
+      [outcome.attemptsUsed]: outcome.solved
+        ? safeStats.guessDistribution[outcome.attemptsUsed as keyof GuessDistribution] + 1
+        : safeStats.guessDistribution[outcome.attemptsUsed as keyof GuessDistribution],
+    },
+  }
+}
+
+async function fetchGlobalStatsFromApi() {
+  const response = await fetch(globalStatsApiPath)
+
+  if (!response.ok) {
+    throw new Error('Unable to load global stats.')
+  }
+
+  const payload = (await response.json()) as { stats?: Partial<UserStats> }
+  return coerceStats(payload.stats)
+}
+
+async function submitGlobalOutcomeToApi(outcome: GlobalStatsOutcome) {
+  const response = await fetch(globalStatsApiPath, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(outcome),
+  })
+
+  if (!response.ok) {
+    throw new Error('Unable to update global stats.')
+  }
+
+  const payload = (await response.json()) as { stats?: Partial<UserStats> }
+  return coerceStats(payload.stats)
+}
+
+function loadUsers(): StoredUsers {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(usersStorageKey)
+
+    if (!rawValue) {
+      return {}
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown
+
+    if (!parsedValue || typeof parsedValue !== 'object') {
+      return {}
+    }
+
+    const users: StoredUsers = {}
+
+    for (const [key, value] of Object.entries(parsedValue as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') {
+        continue
+      }
+
+      const candidate = value as Partial<StoredUser>
+
+      if (typeof candidate.username === 'string' && typeof candidate.passwordHash === 'string') {
+        users[key] = {
+          username: candidate.username,
+          passwordHash: candidate.passwordHash,
+        }
+      }
+    }
+
+    return users
+  } catch {
+    return {}
+  }
+}
+
+function saveUsers(users: StoredUsers) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(usersStorageKey, JSON.stringify(users))
+}
+
+async function hashPassword(password: string) {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) {
+    throw new Error('Secure hashing is not available in this browser.')
+  }
+
+  const encoded = new TextEncoder().encode(password)
+  const digest = await window.crypto.subtle.digest('SHA-256', encoded)
+  const bytes = new Uint8Array(digest)
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function loadStreakState(seed: string, userKey: string): StreakState {
   if (typeof window === 'undefined') {
     return { current: 0, best: 0, lastSeed: null }
   }
 
   try {
-    const rawValue = window.localStorage.getItem(streakStorageKey)
+    const rawValue = window.localStorage.getItem(getStreakStorageKey(userKey))
 
     if (!rawValue) {
       return { current: 0, best: 0, lastSeed: null }
@@ -350,21 +636,21 @@ function loadStreakState(seed: string): StreakState {
   }
 }
 
-function saveStreakState(state: StreakState) {
+function saveStreakState(state: StreakState, userKey: string) {
   if (typeof window === 'undefined') {
     return
   }
 
-  window.localStorage.setItem(streakStorageKey, JSON.stringify(state))
+  window.localStorage.setItem(getStreakStorageKey(userKey), JSON.stringify(state))
 }
 
-function loadDailyAssignments(): DailyAssignments {
+function loadDailyAssignments(userKey: string): DailyAssignments {
   if (typeof window === 'undefined') {
     return {}
   }
 
   try {
-    const rawValue = window.localStorage.getItem(dailyAssignmentsStorageKey)
+    const rawValue = window.localStorage.getItem(getDailyAssignmentsStorageKey(userKey))
 
     if (!rawValue) {
       return {}
@@ -390,12 +676,12 @@ function loadDailyAssignments(): DailyAssignments {
   }
 }
 
-function saveDailyAssignments(assignments: DailyAssignments) {
+function saveDailyAssignments(assignments: DailyAssignments, userKey: string) {
   if (typeof window === 'undefined') {
     return
   }
 
-  window.localStorage.setItem(dailyAssignmentsStorageKey, JSON.stringify(assignments))
+  window.localStorage.setItem(getDailyAssignmentsStorageKey(userKey), JSON.stringify(assignments))
 }
 
 function setCookieValue(name: string, value: string, lifetimeDays: number) {
@@ -426,8 +712,8 @@ function getCookieValue(name: string) {
   return null
 }
 
-function loadDayState(seed: string): DayState | null {
-  const rawValue = getCookieValue(`${dayStateCookiePrefix}${seed}`)
+function loadDayState(seed: string, userKey: string): DayState | null {
+  const rawValue = getCookieValue(getDayStateCookieName(seed, userKey))
 
   if (!rawValue) {
     return null
@@ -458,8 +744,8 @@ function loadDayState(seed: string): DayState | null {
   }
 }
 
-function saveDayState(seed: string, dayState: DayState) {
-  setCookieValue(`${dayStateCookiePrefix}${seed}`, JSON.stringify(dayState), dayStateCookieLifetimeDays)
+function saveDayState(seed: string, userKey: string, dayState: DayState) {
+  setCookieValue(getDayStateCookieName(seed, userKey), JSON.stringify(dayState), dayStateCookieLifetimeDays)
 }
 
 function resolvePokemonForSeed(seed: string, assignments: DailyAssignments) {
@@ -531,7 +817,15 @@ function TypeDleLogo() {
 function App() {
   const [todaySeed] = useState(() => getDailySeed())
   const [seed, setSeed] = useState(todaySeed)
-  const [dailyAssignments, setDailyAssignments] = useState<DailyAssignments>(() => loadDailyAssignments())
+  const [currentUserKey, setCurrentUserKey] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    return window.localStorage.getItem(currentUserStorageKey)
+  })
+  const [currentUsername, setCurrentUsername] = useState('')
+  const [dailyAssignments, setDailyAssignments] = useState<DailyAssignments>({})
   const [guessValue, setGuessValue] = useState('')
   const [message, setMessage] = useState('')
   const [wrongGuessCount, setWrongGuessCount] = useState(0)
@@ -543,13 +837,21 @@ function App() {
   const [resultImageUrl, setResultImageUrl] = useState('')
   const [evolutionStage, setEvolutionStage] = useState<EvolutionStage>('loading')
   const [originRegion, setOriginRegion] = useState('loading')
-  const [streakState, setStreakState] = useState<StreakState>(() => loadStreakState(todaySeed))
+  const [streakState, setStreakState] = useState<StreakState>({ current: 0, best: 0, lastSeed: null })
+  const [userStats, setUserStats] = useState<UserStats>(() => createEmptyUserStats())
+  const [globalStats, setGlobalStats] = useState<UserStats>(() => loadGlobalStats())
+  const [guestClientId] = useState(() => getOrCreateGuestClientId())
   const [copyStatus, setCopyStatus] = useState('')
   const [creditsOpen, setCreditsOpen] = useState(false)
   const [rewindOpen, setRewindOpen] = useState(false)
   const [rewindDate, setRewindDate] = useState(seed)
   const [rewindStatus, setRewindStatus] = useState('')
   const [dayStateHydrated, setDayStateHydrated] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authUsername, setAuthUsername] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authStatus, setAuthStatus] = useState('')
+  const [authOpen, setAuthOpen] = useState(false)
 
   const target = useMemo(() => resolvePokemonForSeed(seed, dailyAssignments), [dailyAssignments, seed])
   const { weaknesses, resistances, immunities } = useMemo(
@@ -576,6 +878,11 @@ function App() {
   const abilityVisible = wrongGuessCount >= 5
   const guessesLeft = Math.max(0, 6 - wrongGuessCount)
   const isTodayChallenge = seed === todaySeed
+  const isAuthenticated = Boolean(currentUserKey)
+  const averageWinAttempts = globalStats.wins > 0 ? globalStats.totalWinningGuesses / globalStats.wins : 0
+  const winRate = globalStats.played > 0 ? Math.round((globalStats.wins / globalStats.played) * 100) : 0
+  const guessDistributionOrder: Array<keyof GuessDistribution> = [1, 2, 3, 4, 5, 6]
+  const maxDistributionCount = Math.max(1, ...guessDistributionOrder.map((guess) => globalStats.guessDistribution[guess]))
   const rewindOptions = useMemo(
     () =>
       Object.entries(dailyAssignments)
@@ -583,14 +890,54 @@ function App() {
         .map(([entrySeed, pokemonName]) => ({
           seed: entrySeed,
           pokemonName,
-          solved: loadDayState(entrySeed)?.solved ?? false,
+          solved: currentUserKey ? (loadDayState(entrySeed, currentUserKey)?.solved ?? false) : false,
         }))
         .sort((left, right) => right.seed.localeCompare(left.seed))
         .slice(0, 28),
-    [dailyAssignments, todaySeed],
+    [currentUserKey, dailyAssignments, todaySeed],
   )
 
   useEffect(() => {
+    if (!currentUserKey) {
+      setCurrentUsername('')
+      return
+    }
+
+    const users = loadUsers()
+    const user = users[currentUserKey]
+
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(currentUserStorageKey)
+      }
+
+      setCurrentUserKey(null)
+      setCurrentUsername('')
+      return
+    }
+
+    setCurrentUsername(user.username)
+  }, [currentUserKey])
+
+  useEffect(() => {
+    if (!currentUserKey) {
+      setDailyAssignments({})
+      setStreakState({ current: 0, best: 0, lastSeed: null })
+      setUserStats(createEmptyUserStats())
+      return
+    }
+
+    setDailyAssignments(loadDailyAssignments(currentUserKey))
+    setStreakState(loadStreakState(todaySeed, currentUserKey))
+    setUserStats(loadUserStats(currentUserKey))
+    setSeed(todaySeed)
+  }, [currentUserKey, todaySeed])
+
+  useEffect(() => {
+    if (!currentUserKey) {
+      return
+    }
+
     const resolvedPokemon = resolvePokemonForSeed(seed, dailyAssignments)
 
     if (dailyAssignments[seed] === resolvedPokemon.name) {
@@ -603,13 +950,29 @@ function App() {
     }
 
     setDailyAssignments(nextAssignments)
-    saveDailyAssignments(nextAssignments)
-  }, [dailyAssignments, seed])
+    saveDailyAssignments(nextAssignments, currentUserKey)
+  }, [currentUserKey, dailyAssignments, seed])
 
   useEffect(() => {
+    if (!currentUserKey) {
+      setGuessValue('')
+      setMessage('')
+      setWrongGuessCount(0)
+      setSolved(false)
+      setFailed(false)
+      setPickerOpen(false)
+      setHighlightedSuggestionIndex(0)
+      setResultModalOpen(false)
+      setResultImageUrl('')
+      setCopyStatus('')
+      setRewindStatus('')
+      setDayStateHydrated(false)
+      return
+    }
+
     setDayStateHydrated(false)
 
-    const savedDayState = loadDayState(seed)
+    const savedDayState = loadDayState(seed, currentUserKey)
 
     if (savedDayState) {
       setGuessValue(savedDayState.guessValue)
@@ -632,21 +995,21 @@ function App() {
     setCopyStatus('')
     setRewindStatus('')
     setDayStateHydrated(true)
-  }, [seed])
+  }, [currentUserKey, seed])
 
   useEffect(() => {
-    if (!dayStateHydrated) {
+    if (!currentUserKey || !dayStateHydrated) {
       return
     }
 
-    saveDayState(seed, {
+    saveDayState(seed, currentUserKey, {
       guessValue,
       message,
       wrongGuessCount,
       solved,
       failed,
     })
-  }, [dayStateHydrated, failed, guessValue, message, seed, solved, wrongGuessCount])
+  }, [currentUserKey, dayStateHydrated, failed, guessValue, message, seed, solved, wrongGuessCount])
 
   useEffect(() => {
     let cancelled = false
@@ -723,7 +1086,7 @@ function App() {
   }, [target.name])
 
   useEffect(() => {
-    if (!isTodayChallenge || (!solved && !failed)) {
+    if (!currentUserKey || !isTodayChallenge || (!solved && !failed)) {
       return
     }
 
@@ -754,9 +1117,116 @@ function App() {
       streakState.lastSeed !== nextStreakState.lastSeed
     ) {
       setStreakState(nextStreakState)
-      saveStreakState(nextStreakState)
+      saveStreakState(nextStreakState, currentUserKey)
     }
-  }, [failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
+  }, [currentUserKey, failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
+
+  useEffect(() => {
+    if (!currentUserKey || (!solved && !failed)) {
+      return
+    }
+
+    if (userStats.recordedSeeds.includes(seed)) {
+      return
+    }
+
+    const attemptsUsed = solved ? wrongGuessCount + 1 : wrongGuessCount
+
+    const nextStats: UserStats = {
+      ...userStats,
+      played: userStats.played + 1,
+      wins: userStats.wins + (solved ? 1 : 0),
+      losses: userStats.losses + (failed ? 1 : 0),
+      totalWinningGuesses: userStats.totalWinningGuesses + (solved ? attemptsUsed : 0),
+      recordedSeeds: [...userStats.recordedSeeds, seed],
+      guessDistribution: {
+        ...userStats.guessDistribution,
+        [attemptsUsed]:
+          solved && attemptsUsed >= 1 && attemptsUsed <= 6
+            ? userStats.guessDistribution[attemptsUsed as keyof GuessDistribution] + 1
+            : userStats.guessDistribution[attemptsUsed as keyof GuessDistribution],
+      },
+    }
+
+    setUserStats(nextStats)
+    saveUserStats(currentUserKey, nextStats)
+  }, [currentUserKey, failed, seed, solved, userStats, wrongGuessCount])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function hydrateGlobalStats() {
+      try {
+        const remoteStats = await fetchGlobalStatsFromApi()
+
+        if (cancelled) {
+          return
+        }
+
+        setGlobalStats(remoteStats)
+        saveGlobalStats(remoteStats)
+      } catch {
+        // Local storage snapshot remains the fallback when API is unavailable.
+      }
+    }
+
+    void hydrateGlobalStats()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!solved && !failed) {
+      return
+    }
+
+    const attemptsUsed = solved ? wrongGuessCount + 1 : wrongGuessCount
+    const safeAttemptsUsed = Math.max(1, Math.min(6, attemptsUsed))
+    const outcomeScope = currentUserKey ? `user:${currentUserKey}` : `guest:${guestClientId}`
+    const outcomeKey = `${outcomeScope}:${seed}`
+    const outcomePayload: GlobalStatsOutcome = {
+      outcomeId: outcomeKey,
+      solved,
+      attemptsUsed: safeAttemptsUsed,
+    }
+
+    if (globalStats.recordedSeeds.includes(outcomeKey)) {
+      return
+    }
+
+    let cancelled = false
+
+    async function persistGlobalOutcome() {
+      try {
+        const remoteStats = await submitGlobalOutcomeToApi(outcomePayload)
+
+        if (cancelled) {
+          return
+        }
+
+        setGlobalStats(remoteStats)
+        saveGlobalStats(remoteStats)
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        setGlobalStats((currentStats) => {
+          const nextStats = applyOutcomeToStats(currentStats, outcomePayload)
+          saveGlobalStats(nextStats)
+          return nextStats
+        })
+      }
+    }
+
+    void persistGlobalOutcome()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserKey, failed, globalStats.recordedSeeds, guestClientId, seed, solved, wrongGuessCount])
 
   useEffect(() => {
     if (!solved && !failed) {
@@ -945,11 +1415,102 @@ function App() {
     }
   }
 
+  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const username = authUsername.trim()
+    const password = authPassword
+
+    if (!username || !password) {
+      setAuthStatus('Enter a username and password.')
+      return
+    }
+
+    const userKey = normalizeUsername(username)
+    const users = loadUsers()
+
+    try {
+      const passwordHash = await hashPassword(password)
+
+      if (authMode === 'register') {
+        if (users[userKey]) {
+          setAuthStatus('Username already exists.')
+          return
+        }
+
+        users[userKey] = {
+          username,
+          passwordHash,
+        }
+
+        saveUsers(users)
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(currentUserStorageKey, userKey)
+        }
+
+        setCurrentUserKey(userKey)
+        setAuthPassword('')
+        setAuthStatus('')
+        setAuthOpen(false)
+        return
+      }
+
+      const existingUser = users[userKey]
+
+      if (!existingUser || existingUser.passwordHash !== passwordHash) {
+        setAuthStatus('Invalid username or password.')
+        return
+      }
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(currentUserStorageKey, userKey)
+      }
+
+      setCurrentUserKey(userKey)
+      setAuthPassword('')
+      setAuthStatus('')
+      setAuthOpen(false)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unable to sign in right now.'
+      setAuthStatus(errorMessage)
+    }
+  }
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(currentUserStorageKey)
+    }
+
+    setCurrentUserKey(null)
+    setAuthPassword('')
+    setAuthStatus('')
+    setCreditsOpen(false)
+    setRewindOpen(false)
+    setResultModalOpen(false)
+  }
+
   return (
     <main className="wordle-shell">
       <button type="button" className="credits-button" onClick={() => setCreditsOpen(true)}>
         Credits
       </button>
+      {isAuthenticated ? (
+        <button type="button" className="logout-button" onClick={handleLogout}>
+          {`Logout ${currentUsername}`}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="login-button"
+          onClick={() => {
+            setAuthMode('login')
+            setAuthStatus('')
+            setAuthOpen(true)
+          }}
+        >
+          Login
+        </button>
+      )}
 
       <div className="game-shell">
         <div className="game-topbar">
@@ -1033,6 +1594,7 @@ function App() {
               id="pokemon-guess"
               autoComplete="off"
               spellCheck={false}
+              disabled={solved || failed}
               value={guessValue}
               onFocus={() => setPickerOpen(true)}
               onBlur={() => {
@@ -1067,13 +1629,20 @@ function App() {
               </div>
             )}
           </div>
-          <button type="button" className="rewind-button" onClick={openRewindModal} aria-label="Open rewind day picker">
+          <button
+            type="button"
+            className="rewind-button"
+            onClick={openRewindModal}
+            aria-label="Open rewind day picker"
+          >
             <svg className="rewind-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <rect x="3.5" y="5.5" width="17" height="15" rx="2.8" />
               <path d="M7.5 3.8v3.4M16.5 3.8v3.4M3.8 9.2h16.4" />
             </svg>
           </button>
-          <button type="submit" className="guess-submit">Guess</button>
+          <button type="submit" className="guess-submit">
+            Guess
+          </button>
         </form>
 
         <p className="status" aria-live="polite">
@@ -1133,6 +1702,64 @@ function App() {
         </div>
       )}
 
+      {authOpen && !isAuthenticated && (
+        <div className="result-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+          <div className="result-backdrop" onClick={() => setAuthOpen(false)} />
+          <div className="result-card auth-card">
+            <p className="result-eyebrow">Account</p>
+            <h2 id="auth-title">Sign in to TypeDle</h2>
+            <p className="result-copy">Progress, streak, and completed days are saved per account.</p>
+
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <label className="rewind-date-label" htmlFor="auth-username">
+                Username
+              </label>
+              <input
+                id="auth-username"
+                className="rewind-date-input"
+                value={authUsername}
+                onChange={(event) => setAuthUsername(event.target.value)}
+                autoComplete="username"
+                placeholder="Enter username"
+              />
+
+              <label className="rewind-date-label" htmlFor="auth-password">
+                Password
+              </label>
+              <input
+                id="auth-password"
+                type="password"
+                className="rewind-date-input"
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                placeholder="Enter password"
+              />
+
+              <div className="result-actions">
+                <button type="submit" className="result-share-button">
+                  {authMode === 'login' ? 'Login' : 'Create account'}
+                </button>
+                <button
+                  type="button"
+                  className="result-close"
+                  onClick={() => {
+                    setAuthMode((mode) => (mode === 'login' ? 'register' : 'login'))
+                    setAuthStatus('')
+                  }}
+                >
+                  {authMode === 'login' ? 'Need account' : 'Have account'}
+                </button>
+              </div>
+            </form>
+
+            <p className="result-copy-status" aria-live="polite">
+              {authStatus}
+            </p>
+          </div>
+        </div>
+      )}
+
       {resultModalOpen && (
         <div className="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
           <div className="result-backdrop" onClick={() => setResultModalOpen(false)} />
@@ -1157,6 +1784,28 @@ function App() {
                 <span className="result-stat-label">Best</span>
                 <span className="result-stat-value">{streakState.best}</span>
               </div>
+            </div>
+            <div className="result-distribution" aria-label="Guess distribution">
+              <p className="result-stat-label">Guess distribution</p>
+              {guessDistributionOrder.map((guess) => {
+                const count = globalStats.guessDistribution[guess]
+                const fillPercent = Math.max(8, Math.round((count / maxDistributionCount) * 100))
+
+                return (
+                  <div key={guess} className="distribution-row">
+                    <span className="distribution-guess">{guess}</span>
+                    <div className="distribution-bar-track">
+                      <div className="distribution-bar-fill" style={{ width: `${fillPercent}%` }}>
+                        {count}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="distribution-average">
+                Average attempts to win: <strong>{globalStats.wins > 0 ? averageWinAttempts.toFixed(2) : 'N/A'}</strong>
+                {' '}| Win rate: <strong>{winRate}%</strong>
+              </p>
             </div>
             <div className="result-visual">
               {resultImageUrl ? (
