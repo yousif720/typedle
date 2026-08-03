@@ -1006,7 +1006,8 @@ function App() {
       .slice(0, 8)
   }, [guessValue])
   const isAccountSyncing = Boolean(currentUserKey) && !userCompletionsHydrated
-  const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed && !isAccountSyncing
+  const hasCompletionForSeed = Boolean(currentUserKey && userCompletions[seed])
+  const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed && !isAccountSyncing && !hasCompletionForSeed
 
   const evolutionVisible = wrongGuessCount >= 1
   const resistanceVisible = wrongGuessCount >= 2
@@ -1206,7 +1207,6 @@ function App() {
       setFailed(false)
       setPickerOpen(false)
       setHighlightedSuggestionIndex(0)
-      setResultModalOpen(false)
       setResultImageUrl('')
       setCopyStatus('')
       setRewindStatus('')
@@ -1257,7 +1257,6 @@ function App() {
 
     setPickerOpen(false)
     setHighlightedSuggestionIndex(0)
-    setResultModalOpen(false)
     setResultImageUrl('')
     setCopyStatus('')
     setRewindStatus('')
@@ -1956,7 +1955,7 @@ function App() {
               id="pokemon-guess"
               autoComplete="off"
               spellCheck={false}
-              disabled={solved || failed || isAccountSyncing}
+              disabled={solved || failed || isAccountSyncing || hasCompletionForSeed}
               value={guessValue}
               onFocus={() => setPickerOpen(true)}
               onBlur={() => {
@@ -2002,13 +2001,13 @@ function App() {
               <path d="M7.5 3.8v3.4M16.5 3.8v3.4M3.8 9.2h16.4" />
             </svg>
           </button>
-          <button type="submit" className="guess-submit" disabled={solved || failed || isAccountSyncing}>
+          <button type="submit" className="guess-submit" disabled={solved || failed || isAccountSyncing || hasCompletionForSeed}>
             Guess
           </button>
         </form>
 
         <p className="status" aria-live="polite">
-          {message || (isAccountSyncing ? 'Syncing your account history...' : solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
+          {message || (isAccountSyncing ? 'Syncing your account history...' : hasCompletionForSeed ? 'This day is already completed on your account.' : solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
         </p>
       </div>
 
