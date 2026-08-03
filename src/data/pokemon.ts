@@ -123,13 +123,35 @@ const attackProfiles: Record<PokemonType, AttackProfile> = {
   steel: {
     weakness: ['ice', 'rock', 'fairy'],
     resistance: ['fire', 'water', 'electric', 'steel'],
-    immunity: ['poison'],
+    immunity: [],
   },
   fairy: {
     weakness: ['fighting', 'dragon', 'dark'],
     resistance: ['fire', 'poison', 'steel'],
     immunity: [],
   },
+}
+
+// Defender-side immunities: target type -> attack types that deal 0x damage.
+const defensiveImmunities: Record<PokemonType, PokemonType[]> = {
+  normal: ['ghost'],
+  fire: [],
+  water: [],
+  electric: [],
+  grass: [],
+  ice: [],
+  fighting: [],
+  poison: [],
+  ground: ['electric'],
+  flying: ['ground'],
+  psychic: [],
+  bug: [],
+  rock: [],
+  ghost: ['normal', 'fighting'],
+  dragon: [],
+  dark: ['psychic'],
+  steel: ['poison'],
+  fairy: ['dragon'],
 }
 
 const basePokemonPool = generatedPokemonPool as unknown as PokemonEntry[]
@@ -171,7 +193,7 @@ export function getPokemonBySeed(seed: string) {
 function calculateMultiplier(attackType: PokemonType, targetType: PokemonType) {
   const profile = attackProfiles[attackType]
 
-  if (profile.immunity.includes(targetType)) {
+  if (defensiveImmunities[targetType].includes(attackType)) {
     return 0
   }
 
