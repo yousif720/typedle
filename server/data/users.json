@@ -162,6 +162,186 @@
           "completedAt": "2026-08-03T18:21:24.0428412Z"
         }
       }
+    },
+    "syncdemo40692": {
+      "username": "syncdemo40692",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:30:14.157Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 3,
+          "guessedPokemon": "Bulbasaur",
+          "targetPokemon": "Bulbasaur",
+          "completedAt": "2026-08-03T18:30:14.177Z"
+        }
+      }
+    },
+    "xdev99985": {
+      "username": "xdev99985",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:31:08.308Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-03": {
+          "seed": "2026-08-03",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 2,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "completedAt": "2026-08-03T18:31:08.313Z"
+        }
+      }
+    },
+    "xsync24652": {
+      "username": "xsync24652",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:31:25.457Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-02": {
+          "seed": "2026-08-02",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 2,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "completedAt": "2026-08-03T18:31:25.463Z"
+        }
+      }
+    },
+    "xsync99589": {
+      "username": "xsync99589",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:31:35.866Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-01": {
+          "seed": "2026-08-01",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 2,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "completedAt": "2026-08-03T18:31:35.871Z"
+        }
+      }
+    },
+    "xsync11803": {
+      "username": "xsync11803",
+      "passwordHash": "hash123",
+      "createdAt": "2026-08-03T18:32:14.443Z",
+      "streakState": {
+        "current": 0,
+        "best": 0,
+        "lastSeed": null
+      },
+      "stats": {
+        "played": 0,
+        "wins": 0,
+        "losses": 0,
+        "guessDistribution": {
+          "1": 0,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0
+        },
+        "totalWinningGuesses": 0,
+        "recordedSeeds": []
+      },
+      "completions": {
+        "2026-08-01": {
+          "seed": "2026-08-01",
+          "solved": true,
+          "failed": false,
+          "attemptsUsed": 2,
+          "guessedPokemon": "Mareep",
+          "targetPokemon": "Mareep",
+          "completedAt": "2026-08-03T18:32:14.450Z"
+        }
+      }
     }
   }
 }

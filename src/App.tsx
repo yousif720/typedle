@@ -1006,18 +1006,32 @@ function App() {
   const guessDistributionOrder: Array<keyof GuessDistribution> = [1, 2, 3, 4, 5, 6]
   const maxDistributionCount = Math.max(1, ...guessDistributionOrder.map((guess) => globalStats.guessDistribution[guess]))
   const rewindOptions = useMemo(
-    () =>
-      Object.entries(dailyAssignments)
-        .filter(([entrySeed]) => entrySeed < todaySeed)
-        .map(([entrySeed, pokemonName]) => ({
-          seed: entrySeed,
-          pokemonName,
-          solved: currentUserKey
-            ? (userCompletions[entrySeed]?.solved ?? loadDayState(entrySeed, currentUserKey)?.solved ?? false)
-            : false,
-        }))
+    () => {
+      const allSeeds = new Set<string>([
+        ...Object.keys(dailyAssignments),
+        ...Object.keys(userCompletions),
+      ])
+
+      return Array.from(allSeeds)
+        .filter((entrySeed) => entrySeed < todaySeed)
+        .map((entrySeed) => {
+          const completion = userCompletions[entrySeed]
+          const fallbackPokemon = dailyAssignments[entrySeed] ?? resolvePokemonForSeed(entrySeed, dailyAssignments).name
+          const completionPokemon = completion?.targetPokemon?.trim() || fallbackPokemon
+          const completionKnown = Boolean(completion)
+
+          return {
+            seed: entrySeed,
+            pokemonName: completionPokemon,
+            solved: currentUserKey
+              ? (completion?.solved ?? loadDayState(entrySeed, currentUserKey)?.solved ?? false)
+              : false,
+            revealedByCompletion: completionKnown,
+          }
+        })
         .sort((left, right) => right.seed.localeCompare(left.seed))
-        .slice(0, 28),
+        .slice(0, 28)
+    },
     [currentUserKey, dailyAssignments, todaySeed, userCompletions],
   )
 
@@ -1182,6 +1196,7 @@ function App() {
     setDayStateHydrated(false)
 
     const savedDayState = loadDayState(seed, currentUserKey)
+    const completion = userCompletions[seed]
 
     if (savedDayState) {
       setGuessValue(savedDayState.guessValue)
@@ -1190,6 +1205,23 @@ function App() {
       setLastSubmittedPokemon(savedDayState.lastSubmittedPokemon)
       setSolved(savedDayState.solved)
       setFailed(savedDayState.failed)
+    } else if (completion) {
+      const resolvedTargetPokemon = completion.targetPokemon || target.name
+      const resolvedWrongGuessCount = Math.max(
+        0,
+        Math.min(6, completion.solved ? completion.attemptsUsed - 1 : completion.attemptsUsed),
+      )
+
+      setGuessValue('')
+      setMessage(
+        completion.solved
+          ? `Solved. ${resolvedTargetPokemon} is correct.`
+          : `Fail. The answer was ${resolvedTargetPokemon}.`,
+      )
+      setWrongGuessCount(resolvedWrongGuessCount)
+      setLastSubmittedPokemon(completion.guessedPokemon || '')
+      setSolved(completion.solved)
+      setFailed(completion.failed || !completion.solved)
     } else {
       setGuessValue('')
       setMessage('')
@@ -1206,7 +1238,7 @@ function App() {
     setCopyStatus('')
     setRewindStatus('')
     setDayStateHydrated(true)
-  }, [currentUserKey, seed])
+  }, [currentUserKey, seed, target.name, userCompletions])
 
   useEffect(() => {
     if (!currentUserKey || !dayStateHydrated) {
@@ -1966,7 +1998,7 @@ function App() {
                     onClick={() => jumpToDay(entry.seed)}
                   >
                     <span>{entry.seed}</span>
-                    <span>{entry.solved ? entry.pokemonName : 'Hidden'}</span>
+                    <span>{entry.revealedByCompletion || entry.solved ? entry.pokemonName : 'Hidden'}</span>
                   </button>
                 ))}
               </div>
