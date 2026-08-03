@@ -32,10 +32,10 @@ const globalStatsStorageKey = 'typedle-global-stats-v1'
 const configuredStatsApiBaseUrl = import.meta.env.VITE_STATS_API_BASE_URL?.trim() ?? 'https://typedle.onrender.com'
 const globalStatsApiBaseUrl = configuredStatsApiBaseUrl.replace(/\/+$/g, '')
 const globalStatsApiPath = `${globalStatsApiBaseUrl}/api/stats/global`
+const authApiBasePath = `${globalStatsApiBaseUrl}/api/auth`
 const guestClientIdStorageKey = 'typedle-guest-client-id-v1'
 const dayStateCookiePrefix = 'typedle-daystate-'
 const dayStateCookieLifetimeDays = 365
-const usersStorageKey = 'typedle-users-v1'
 const currentUserStorageKey = 'typedle-current-user-v1'
 
 type DailyAssignments = Record<string, string>
@@ -48,12 +48,10 @@ type DayState = {
   failed: boolean
 }
 
-type StoredUser = {
+type UserProfile = {
+  userKey: string
   username: string
-  passwordHash: string
 }
-
-type StoredUsers = Record<string, StoredUser>
 
 type GuessDistribution = {
   1: number
@@ -74,6 +72,7 @@ type UserStats = {
 }
 
 type GlobalStatsOutcome = {
+  seed: string
   outcomeId: string
   solved: boolean
   attemptsUsed: number
@@ -449,31 +448,51 @@ function saveUserStats(userKey: string, stats: UserStats) {
   window.localStorage.setItem(getUserStatsStorageKey(userKey), JSON.stringify(stats))
 }
 
-function loadGlobalStats(): UserStats {
+function loadGlobalStatsCache(): Record<string, UserStats> {
   if (typeof window === 'undefined') {
-    return createEmptyUserStats()
+    return {}
   }
 
   try {
     const rawValue = window.localStorage.getItem(globalStatsStorageKey)
 
     if (!rawValue) {
-      return createEmptyUserStats()
+      return {}
     }
 
-    const parsedValue = JSON.parse(rawValue) as Partial<UserStats>
-    return coerceStats(parsedValue)
+    const parsedValue = JSON.parse(rawValue) as unknown
+
+    if (!parsedValue || typeof parsedValue !== 'object') {
+      return {}
+    }
+
+    const cache: Record<string, UserStats> = {}
+
+    for (const [entrySeed, rawStats] of Object.entries(parsedValue as Record<string, Partial<UserStats>>)) {
+      if (typeof entrySeed === 'string' && entrySeed.length > 0) {
+        cache[entrySeed] = coerceStats(rawStats)
+      }
+    }
+
+    return cache
   } catch {
-    return createEmptyUserStats()
+    return {}
   }
 }
 
-function saveGlobalStats(stats: UserStats) {
+function loadGlobalStatsForSeed(seed: string): UserStats {
+  const cache = loadGlobalStatsCache()
+  return cache[seed] ? coerceStats(cache[seed]) : createEmptyUserStats()
+}
+
+function saveGlobalStatsForSeed(seed: string, stats: UserStats) {
   if (typeof window === 'undefined') {
     return
   }
 
-  window.localStorage.setItem(globalStatsStorageKey, JSON.stringify(stats))
+  const cache = loadGlobalStatsCache()
+  cache[seed] = coerceStats(stats)
+  window.localStorage.setItem(globalStatsStorageKey, JSON.stringify(cache))
 }
 
 function getOrCreateGuestClientId() {
@@ -515,8 +534,8 @@ function applyOutcomeToStats(stats: UserStats, outcome: GlobalStatsOutcome) {
   }
 }
 
-async function fetchGlobalStatsFromApi() {
-  const response = await fetch(globalStatsApiPath)
+async function fetchGlobalStatsFromApi(seed: string) {
+  const response = await fetch(`${globalStatsApiPath}?seed=${encodeURIComponent(seed)}`)
 
   if (!response.ok) {
     throw new Error('Unable to load global stats.')
@@ -543,53 +562,75 @@ async function submitGlobalOutcomeToApi(outcome: GlobalStatsOutcome) {
   return coerceStats(payload.stats)
 }
 
-function loadUsers(): StoredUsers {
-  if (typeof window === 'undefined') {
-    return {}
+async function fetchUserProfileFromApi(userKey: string): Promise<UserProfile> {
+  const response = await fetch(`${authApiBasePath}/users/${encodeURIComponent(userKey)}`)
+
+  if (!response.ok) {
+    throw new Error('Unable to load account profile.')
   }
 
-  try {
-    const rawValue = window.localStorage.getItem(usersStorageKey)
+  const payload = (await response.json()) as { user?: Partial<UserProfile> }
 
-    if (!rawValue) {
-      return {}
-    }
+  if (!payload.user || typeof payload.user.userKey !== 'string' || typeof payload.user.username !== 'string') {
+    throw new Error('Invalid account profile response.')
+  }
 
-    const parsedValue = JSON.parse(rawValue) as unknown
-
-    if (!parsedValue || typeof parsedValue !== 'object') {
-      return {}
-    }
-
-    const users: StoredUsers = {}
-
-    for (const [key, value] of Object.entries(parsedValue as Record<string, unknown>)) {
-      if (!value || typeof value !== 'object') {
-        continue
-      }
-
-      const candidate = value as Partial<StoredUser>
-
-      if (typeof candidate.username === 'string' && typeof candidate.passwordHash === 'string') {
-        users[key] = {
-          username: candidate.username,
-          passwordHash: candidate.passwordHash,
-        }
-      }
-    }
-
-    return users
-  } catch {
-    return {}
+  return {
+    userKey: payload.user.userKey,
+    username: payload.user.username,
   }
 }
 
-function saveUsers(users: StoredUsers) {
-  if (typeof window === 'undefined') {
-    return
+async function registerUserWithApi(userKey: string, username: string, passwordHash: string): Promise<UserProfile> {
+  const response = await fetch(`${authApiBasePath}/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userKey, username, passwordHash }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Unable to create account.')
   }
 
-  window.localStorage.setItem(usersStorageKey, JSON.stringify(users))
+  const payload = (await response.json()) as { user?: Partial<UserProfile> }
+
+  if (!payload.user || typeof payload.user.userKey !== 'string' || typeof payload.user.username !== 'string') {
+    throw new Error('Invalid registration response.')
+  }
+
+  return {
+    userKey: payload.user.userKey,
+    username: payload.user.username,
+  }
+}
+
+async function loginUserWithApi(userKey: string, passwordHash: string): Promise<UserProfile> {
+  const response = await fetch(`${authApiBasePath}/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userKey, passwordHash }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? 'Invalid username or password.')
+  }
+
+  const payload = (await response.json()) as { user?: Partial<UserProfile> }
+
+  if (!payload.user || typeof payload.user.userKey !== 'string' || typeof payload.user.username !== 'string') {
+    throw new Error('Invalid login response.')
+  }
+
+  return {
+    userKey: payload.user.userKey,
+    username: payload.user.username,
+  }
 }
 
 async function hashPassword(password: string) {
@@ -839,7 +880,7 @@ function App() {
   const [originRegion, setOriginRegion] = useState('loading')
   const [streakState, setStreakState] = useState<StreakState>({ current: 0, best: 0, lastSeed: null })
   const [userStats, setUserStats] = useState<UserStats>(() => createEmptyUserStats())
-  const [globalStats, setGlobalStats] = useState<UserStats>(() => loadGlobalStats())
+  const [globalStats, setGlobalStats] = useState<UserStats>(() => loadGlobalStatsForSeed(todaySeed))
   const [guestClientId] = useState(() => getOrCreateGuestClientId())
   const [copyStatus, setCopyStatus] = useState('')
   const [creditsOpen, setCreditsOpen] = useState(false)
@@ -903,20 +944,38 @@ function App() {
       return
     }
 
-    const users = loadUsers()
-    const user = users[currentUserKey]
+    const userKey = currentUserKey
 
-    if (!user) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(currentUserStorageKey)
+    let cancelled = false
+
+    async function hydrateCurrentUserProfile() {
+      try {
+        const userProfile = await fetchUserProfileFromApi(userKey)
+
+        if (cancelled) {
+          return
+        }
+
+        setCurrentUsername(userProfile.username)
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(currentUserStorageKey)
+        }
+
+        setCurrentUserKey(null)
+        setCurrentUsername('')
       }
-
-      setCurrentUserKey(null)
-      setCurrentUsername('')
-      return
     }
 
-    setCurrentUsername(user.username)
+    void hydrateCurrentUserProfile()
+
+    return () => {
+      cancelled = true
+    }
   }, [currentUserKey])
 
   useEffect(() => {
@@ -1155,18 +1214,22 @@ function App() {
   useEffect(() => {
     let cancelled = false
 
+    setGlobalStats(loadGlobalStatsForSeed(seed))
+
     async function hydrateGlobalStats() {
       try {
-        const remoteStats = await fetchGlobalStatsFromApi()
+        const remoteStats = await fetchGlobalStatsFromApi(seed)
 
         if (cancelled) {
           return
         }
 
         setGlobalStats(remoteStats)
-        saveGlobalStats(remoteStats)
+        saveGlobalStatsForSeed(seed, remoteStats)
       } catch {
-        // Local storage snapshot remains the fallback when API is unavailable.
+        if (!cancelled) {
+          setGlobalStats(loadGlobalStatsForSeed(seed))
+        }
       }
     }
 
@@ -1175,7 +1238,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [seed])
 
   useEffect(() => {
     if (!solved && !failed) {
@@ -1187,6 +1250,7 @@ function App() {
     const outcomeScope = currentUserKey ? `user:${currentUserKey}` : `guest:${guestClientId}`
     const outcomeKey = `${outcomeScope}:${seed}`
     const outcomePayload: GlobalStatsOutcome = {
+      seed,
       outcomeId: outcomeKey,
       solved,
       attemptsUsed: safeAttemptsUsed,
@@ -1207,7 +1271,7 @@ function App() {
         }
 
         setGlobalStats(remoteStats)
-        saveGlobalStats(remoteStats)
+        saveGlobalStatsForSeed(seed, remoteStats)
       } catch {
         if (cancelled) {
           return
@@ -1215,7 +1279,7 @@ function App() {
 
         setGlobalStats((currentStats) => {
           const nextStats = applyOutcomeToStats(currentStats, outcomePayload)
-          saveGlobalStats(nextStats)
+          saveGlobalStatsForSeed(seed, nextStats)
           return nextStats
         })
       }
@@ -1427,46 +1491,35 @@ function App() {
     }
 
     const userKey = normalizeUsername(username)
-    const users = loadUsers()
 
     try {
       const passwordHash = await hashPassword(password)
 
       if (authMode === 'register') {
-        if (users[userKey]) {
-          setAuthStatus('Username already exists.')
-          return
-        }
+        const createdUser = await registerUserWithApi(userKey, username, passwordHash)
 
-        users[userKey] = {
-          username,
-          passwordHash,
-        }
-
-        saveUsers(users)
         if (typeof window !== 'undefined') {
-          window.localStorage.setItem(currentUserStorageKey, userKey)
+          window.localStorage.setItem(currentUserStorageKey, createdUser.userKey)
         }
 
-        setCurrentUserKey(userKey)
+        setCurrentUserKey(createdUser.userKey)
+        setCurrentUsername(createdUser.username)
+        setAuthUsername('')
         setAuthPassword('')
         setAuthStatus('')
         setAuthOpen(false)
         return
       }
 
-      const existingUser = users[userKey]
-
-      if (!existingUser || existingUser.passwordHash !== passwordHash) {
-        setAuthStatus('Invalid username or password.')
-        return
-      }
+      const loggedInUser = await loginUserWithApi(userKey, passwordHash)
 
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(currentUserStorageKey, userKey)
+        window.localStorage.setItem(currentUserStorageKey, loggedInUser.userKey)
       }
 
-      setCurrentUserKey(userKey)
+      setCurrentUserKey(loggedInUser.userKey)
+      setCurrentUsername(loggedInUser.username)
+      setAuthUsername('')
       setAuthPassword('')
       setAuthStatus('')
       setAuthOpen(false)

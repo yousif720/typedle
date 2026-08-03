@@ -8,6 +8,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dataDir = path.join(__dirname, 'data')
 const statsFilePath = path.join(dataDir, 'global-stats.json')
+const usersFilePath = path.join(dataDir, 'users.json')
+const seedPattern = /^\d{4}-\d{2}-\d{2}$/
 
 function createEmptyStats() {
   return {
@@ -24,6 +26,18 @@ function createEmptyStats() {
     },
     totalWinningGuesses: 0,
     recordedSeeds: [],
+  }
+}
+
+function createEmptyStatsStore() {
+  return {
+    byDay: {},
+  }
+}
+
+function createEmptyUsersStore() {
+  return {
+    users: {},
   }
 }
 
@@ -52,34 +66,115 @@ function sanitizeStats(rawStats) {
   }
 }
 
+function sanitizeStatsStore(rawStore) {
+  const store = rawStore && typeof rawStore === 'object' ? rawStore : {}
+  const byDay = store.byDay && typeof store.byDay === 'object' ? store.byDay : {}
+  const safeStore = createEmptyStatsStore()
+
+  for (const [seed, rawStats] of Object.entries(byDay)) {
+    if (typeof seed === 'string' && seedPattern.test(seed)) {
+      safeStore.byDay[seed] = sanitizeStats(rawStats)
+    }
+  }
+
+  // Backward compatibility for old single-object stats format.
+  if (Object.keys(safeStore.byDay).length === 0 && Number.isFinite(store.played)) {
+    safeStore.byDay.legacy = sanitizeStats(store)
+  }
+
+  return safeStore
+}
+
+function sanitizeUsersStore(rawStore) {
+  const store = rawStore && typeof rawStore === 'object' ? rawStore : {}
+  const users = store.users && typeof store.users === 'object' ? store.users : {}
+  const safeStore = createEmptyUsersStore()
+
+  for (const [userKey, value] of Object.entries(users)) {
+    if (!value || typeof value !== 'object') {
+      continue
+    }
+
+    const username = typeof value.username === 'string' ? value.username.trim() : ''
+    const passwordHash = typeof value.passwordHash === 'string' ? value.passwordHash.trim() : ''
+    const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date(0).toISOString()
+
+    if (!username || !passwordHash) {
+      continue
+    }
+
+    safeStore.users[userKey] = {
+      username,
+      passwordHash,
+      createdAt,
+    }
+  }
+
+  return safeStore
+}
+
+function normalizeUserKey(userKey) {
+  return userKey.trim().toLowerCase()
+}
+
+function getStatsForSeed(statsStore, seed) {
+  return statsStore.byDay[seed] ? sanitizeStats(statsStore.byDay[seed]) : createEmptyStats()
+}
+
 async function ensureStatsFile() {
   await mkdir(dataDir, { recursive: true })
 
   try {
     await readFile(statsFilePath, 'utf8')
   } catch {
-    await writeFile(statsFilePath, JSON.stringify(createEmptyStats(), null, 2), 'utf8')
+    await writeFile(statsFilePath, JSON.stringify(createEmptyStatsStore(), null, 2), 'utf8')
+  }
+
+  try {
+    await readFile(usersFilePath, 'utf8')
+  } catch {
+    await writeFile(usersFilePath, JSON.stringify(createEmptyUsersStore(), null, 2), 'utf8')
   }
 }
 
-async function readStats() {
+async function readStatsStore() {
   await ensureStatsFile()
 
   try {
     const raw = await readFile(statsFilePath, 'utf8')
     const parsed = JSON.parse(raw)
-    return sanitizeStats(parsed)
+    return sanitizeStatsStore(parsed)
   } catch {
-    return createEmptyStats()
+    return createEmptyStatsStore()
   }
 }
 
-async function writeStats(nextStats) {
-  const safeStats = sanitizeStats(nextStats)
+async function writeStatsStore(nextStatsStore) {
+  const safeStatsStore = sanitizeStatsStore(nextStatsStore)
   const tempPath = `${statsFilePath}.tmp`
-  await writeFile(tempPath, JSON.stringify(safeStats, null, 2), 'utf8')
+  await writeFile(tempPath, JSON.stringify(safeStatsStore, null, 2), 'utf8')
   await rename(tempPath, statsFilePath)
-  return safeStats
+  return safeStatsStore
+}
+
+async function readUsersStore() {
+  await ensureStatsFile()
+
+  try {
+    const raw = await readFile(usersFilePath, 'utf8')
+    const parsed = JSON.parse(raw)
+    return sanitizeUsersStore(parsed)
+  } catch {
+    return createEmptyUsersStore()
+  }
+}
+
+async function writeUsersStore(nextUsersStore) {
+  const safeUsersStore = sanitizeUsersStore(nextUsersStore)
+  const tempPath = `${usersFilePath}.tmp`
+  await writeFile(tempPath, JSON.stringify(safeUsersStore, null, 2), 'utf8')
+  await rename(tempPath, usersFilePath)
+  return safeUsersStore
 }
 
 function applyOutcome(stats, { outcomeId, solved, attemptsUsed }) {
@@ -113,13 +208,26 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/api/stats/global', async (_req, res) => {
-  const stats = await readStats()
-  res.json({ stats })
+app.get('/api/stats/global', async (req, res) => {
+  const seed = typeof req.query.seed === 'string' ? req.query.seed : ''
+
+  if (!seedPattern.test(seed)) {
+    res.status(400).json({ error: 'seed query parameter is required as YYYY-MM-DD.' })
+    return
+  }
+
+  const statsStore = await readStatsStore()
+  const stats = getStatsForSeed(statsStore, seed)
+  res.json({ seed, stats })
 })
 
 app.post('/api/stats/global', async (req, res) => {
-  const { outcomeId, solved, attemptsUsed } = req.body ?? {}
+  const { seed, outcomeId, solved, attemptsUsed } = req.body ?? {}
+
+  if (typeof seed !== 'string' || !seedPattern.test(seed)) {
+    res.status(400).json({ error: 'seed is required as YYYY-MM-DD.' })
+    return
+  }
 
   if (typeof outcomeId !== 'string' || outcomeId.trim().length === 0) {
     res.status(400).json({ error: 'outcomeId is required.' })
@@ -136,16 +244,115 @@ app.post('/api/stats/global', async (req, res) => {
     return
   }
 
-  const currentStats = await readStats()
+  const statsStore = await readStatsStore()
+  const currentStats = getStatsForSeed(statsStore, seed)
   const nextStats = applyOutcome(currentStats, {
     outcomeId: outcomeId.trim(),
     solved,
     attemptsUsed,
   })
 
-  const savedStats = await writeStats(nextStats)
+  const nextStatsStore = {
+    ...statsStore,
+    byDay: {
+      ...statsStore.byDay,
+      [seed]: nextStats,
+    },
+  }
+
+  const savedStatsStore = await writeStatsStore(nextStatsStore)
+  const savedStats = getStatsForSeed(savedStatsStore, seed)
   const deduped = currentStats.recordedSeeds.includes(outcomeId.trim())
-  res.json({ stats: savedStats, deduped })
+  res.json({ seed, stats: savedStats, deduped })
+})
+
+app.post('/api/auth/register', async (req, res) => {
+  const rawUserKey = typeof req.body?.userKey === 'string' ? req.body.userKey : ''
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : ''
+  const passwordHash = typeof req.body?.passwordHash === 'string' ? req.body.passwordHash.trim() : ''
+  const userKey = normalizeUserKey(rawUserKey)
+
+  if (!userKey || !username || !passwordHash) {
+    res.status(400).json({ error: 'userKey, username, and passwordHash are required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+
+  if (usersStore.users[userKey]) {
+    res.status(409).json({ error: 'Username already exists.' })
+    return
+  }
+
+  const nextUsersStore = {
+    ...usersStore,
+    users: {
+      ...usersStore.users,
+      [userKey]: {
+        username,
+        passwordHash,
+        createdAt: new Date().toISOString(),
+      },
+    },
+  }
+
+  await writeUsersStore(nextUsersStore)
+  res.status(201).json({
+    user: {
+      userKey,
+      username,
+    },
+  })
+})
+
+app.post('/api/auth/login', async (req, res) => {
+  const rawUserKey = typeof req.body?.userKey === 'string' ? req.body.userKey : ''
+  const passwordHash = typeof req.body?.passwordHash === 'string' ? req.body.passwordHash.trim() : ''
+  const userKey = normalizeUserKey(rawUserKey)
+
+  if (!userKey || !passwordHash) {
+    res.status(400).json({ error: 'userKey and passwordHash are required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user || user.passwordHash !== passwordHash) {
+    res.status(401).json({ error: 'Invalid username or password.' })
+    return
+  }
+
+  res.json({
+    user: {
+      userKey,
+      username: user.username,
+    },
+  })
+})
+
+app.get('/api/auth/users/:userKey', async (req, res) => {
+  const userKey = normalizeUserKey(typeof req.params.userKey === 'string' ? req.params.userKey : '')
+
+  if (!userKey) {
+    res.status(400).json({ error: 'userKey is required.' })
+    return
+  }
+
+  const usersStore = await readUsersStore()
+  const user = usersStore.users[userKey]
+
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+
+  res.json({
+    user: {
+      userKey,
+      username: user.username,
+    },
+  })
 })
 
 const port = Number.parseInt(process.env.PORT ?? '8787', 10)

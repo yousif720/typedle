@@ -1,21 +1,38 @@
 {
-  "played": 5,
-  "wins": 4,
-  "losses": 1,
-  "guessDistribution": {
-    "1": 0,
-    "2": 1,
-    "3": 1,
-    "4": 1,
-    "5": 0,
-    "6": 1
-  },
-  "totalWinningGuesses": 15,
-  "recordedSeeds": [
-    "guest:test-client:2026-08-03",
-    "user:ash:2026-08-03",
-    "user:qadelta51148:2026-08-03",
-    "user:qaecho65977:2026-08-03",
-    "user:qafoxtrot86378:2026-08-03"
-  ]
+  "byDay": {
+    "2026-08-03": {
+      "played": 1,
+      "wins": 1,
+      "losses": 0,
+      "guessDistribution": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0
+      },
+      "totalWinningGuesses": 2,
+      "recordedSeeds": [
+        "user:apitest88617:2026-08-03"
+      ]
+    },
+    "2026-08-02": {
+      "played": 1,
+      "wins": 1,
+      "losses": 0,
+      "guessDistribution": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1,
+        "6": 0
+      },
+      "totalWinningGuesses": 5,
+      "recordedSeeds": [
+        "user:apitest88617:2026-08-02"
+      ]
+    }
+  }
 }

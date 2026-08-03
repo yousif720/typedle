@@ -20,11 +20,32 @@ The frontend runs on Vite (default `http://127.0.0.1:5173`) and proxies `/api/*`
 
 ## Global stats API
 
-- Endpoint: `GET /api/stats/global`
+- Endpoint: `GET /api/stats/global?seed=YYYY-MM-DD`
 - Endpoint: `POST /api/stats/global`
 - Health check: `GET /api/health`
 
+`POST /api/stats/global` body:
+
+```json
+{
+	"seed": "2026-08-03",
+	"outcomeId": "user:ash:2026-08-03",
+	"solved": true,
+	"attemptsUsed": 3
+}
+```
+
 Stats are persisted in `server/data/global-stats.json`.
+
+Per-day global stats are stored by seed, so each day has its own aggregate distribution and win rate.
+
+## Auth API
+
+- Endpoint: `POST /api/auth/register`
+- Endpoint: `POST /api/auth/login`
+- Endpoint: `GET /api/auth/users/:userKey`
+
+Users are persisted in `server/data/users.json`.
 
 Each finished game submits one global outcome ID:
 
