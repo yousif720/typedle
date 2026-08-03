@@ -324,6 +324,7 @@ function App() {
   const immunityVisible = wrongGuessCount >= 3
   const evolutionVisible = wrongGuessCount >= 4
   const abilityVisible = wrongGuessCount >= 5
+  const guessesLeft = Math.max(0, 6 - wrongGuessCount)
 
   useEffect(() => {
     let cancelled = false
@@ -586,50 +587,73 @@ function App() {
       </button>
 
       <div className="game-shell">
-        <header className="wordle-header">
-          <p className="eyebrow">Pokémon Wordle</p>
-          <h1>TypeDle</h1>
-          <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
-        </header>
+        <div className="game-topbar">
+          <header className="wordle-header">
+            <div className="title-badge">Daily challenge</div>
+            <h1>TypeDle</h1>
+            <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
+          </header>
 
-        <section className="board" aria-label="Type clue board">
-          <div className="row row-weakness">
-            <span className="row-label">Weak to</span>
-            <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness', 'multiplier')}</div>
-          </div>
-
-          <div className="row row-neutral">
-            <span className="row-label">Neutral</span>
-            <div className="tile-group">
-              {neutralVisible ? renderTypeTiles(neutral, 'tile-neutral tile-revealed', 'neutral') : renderPlaceholderTile()}
+          <section className="game-hud" aria-label="Puzzle status">
+            <div className="hud-chip">
+              <span className="hud-chip-label">Day</span>
+              <span className="hud-chip-value">{seed}</span>
             </div>
-          </div>
-
-          <div className="row row-resistance">
-            <span className="row-label">Resists</span>
-            <div className="tile-group">
-              {resistanceVisible
-                ? renderTypeTiles(resistances, 'tile-resistance tile-revealed', 'multiplier')
-                : renderPlaceholderTile()}
+            <div className="hud-chip">
+              <span className="hud-chip-label">Streak</span>
+              <span className="hud-chip-value">{streakState.current}</span>
             </div>
-          </div>
-
-          <div className="row row-immunity">
-            <span className="row-label">Immune to</span>
-            <div className="tile-group">
-              {immunityVisible ? renderTypeTiles(immunities, 'tile-immunity tile-revealed', 'immune') : renderPlaceholderTile()}
+            <div className="hud-chip">
+              <span className="hud-chip-label">Best</span>
+              <span className="hud-chip-value">{streakState.best}</span>
             </div>
-          </div>
+            <div className="hud-chip hud-chip-wide">
+              <span className="hud-chip-label">Guesses left</span>
+              <span className="hud-chip-value">{guessesLeft}</span>
+            </div>
+          </section>
+        </div>
 
-          <div className="row row-stage">
-            <span className="row-label">Evolution stage</span>
-            <div className="tile-group">{evolutionVisible ? renderEvolutionTile(evolutionStage) : renderPlaceholderTile()}</div>
-          </div>
+        <section className="board-frame">
+          <div className="board" aria-label="Type clue board">
+            <div className="row row-weakness">
+              <span className="row-label">Weak to</span>
+              <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness', 'multiplier')}</div>
+            </div>
 
-          <div className="row row-ability">
-            <span className="row-label">Ability</span>
-            <div className="tile-group">
-              {abilityVisible ? renderAbilityTile(target.ability) : renderPlaceholderTile()}
+            <div className="row row-neutral">
+              <span className="row-label">Neutral</span>
+              <div className="tile-group">
+                {neutralVisible ? renderTypeTiles(neutral, 'tile-neutral tile-revealed', 'neutral') : renderPlaceholderTile()}
+              </div>
+            </div>
+
+            <div className="row row-resistance">
+              <span className="row-label">Resists</span>
+              <div className="tile-group">
+                {resistanceVisible
+                  ? renderTypeTiles(resistances, 'tile-resistance tile-revealed', 'multiplier')
+                  : renderPlaceholderTile()}
+              </div>
+            </div>
+
+            <div className="row row-immunity">
+              <span className="row-label">Immune to</span>
+              <div className="tile-group">
+                {immunityVisible ? renderTypeTiles(immunities, 'tile-immunity tile-revealed', 'immune') : renderPlaceholderTile()}
+              </div>
+            </div>
+
+            <div className="row row-stage">
+              <span className="row-label">Evolution stage</span>
+              <div className="tile-group">{evolutionVisible ? renderEvolutionTile(evolutionStage) : renderPlaceholderTile()}</div>
+            </div>
+
+            <div className="row row-ability">
+              <span className="row-label">Ability</span>
+              <div className="tile-group">
+                {abilityVisible ? renderAbilityTile(target.ability) : renderPlaceholderTile()}
+              </div>
             </div>
           </div>
         </section>
