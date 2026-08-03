@@ -1,5 +1,6 @@
 import cors from 'cors'
 import express from 'express'
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -209,7 +210,7 @@ async function readStatsStore() {
 
 async function writeStatsStore(nextStatsStore) {
   const safeStatsStore = sanitizeStatsStore(nextStatsStore)
-  const tempPath = `${statsFilePath}.tmp`
+  const tempPath = `${statsFilePath}.${randomUUID()}.tmp`
   await writeFile(tempPath, JSON.stringify(safeStatsStore, null, 2), 'utf8')
   await rename(tempPath, statsFilePath)
   return safeStatsStore
@@ -229,7 +230,7 @@ async function readUsersStore() {
 
 async function writeUsersStore(nextUsersStore) {
   const safeUsersStore = sanitizeUsersStore(nextUsersStore)
-  const tempPath = `${usersFilePath}.tmp`
+  const tempPath = `${usersFilePath}.${randomUUID()}.tmp`
   await writeFile(tempPath, JSON.stringify(safeUsersStore, null, 2), 'utf8')
   await rename(tempPath, usersFilePath)
   return safeUsersStore
