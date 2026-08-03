@@ -1257,7 +1257,6 @@ function App() {
 
     setPickerOpen(false)
     setHighlightedSuggestionIndex(0)
-    setResultImageUrl('')
     setCopyStatus('')
     setRewindStatus('')
     setDayStateHydrated(true)
