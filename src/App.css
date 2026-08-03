@@ -320,6 +320,13 @@
   padding: 10px 12px;
 }
 
+.tile-region {
+  min-width: 110px;
+  min-height: 52px;
+  height: auto;
+  padding: 10px 12px;
+}
+
 .stage-stack {
   display: flex;
   flex-direction: column;
@@ -884,6 +891,10 @@
     min-width: 88px;
   }
 
+  .tile-region {
+    min-width: 88px;
+  }
+
   .type-icon {
     width: clamp(24px, 3.6vh, 28px);
     height: clamp(24px, 3.6vh, 28px);
@@ -1006,6 +1017,10 @@
   }
 
   .tile-stage {
+    min-width: 78px;
+  }
+
+  .tile-region {
     min-width: 78px;
   }
 

@@ -191,6 +191,70 @@ function renderEvolutionTile(stage: EvolutionStage) {
   )
 }
 
+const generationRegionMap: Record<string, string> = {
+  'generation-i': 'Kanto',
+  'generation-ii': 'Johto',
+  'generation-iii': 'Hoenn',
+  'generation-iv': 'Sinnoh',
+  'generation-v': 'Unova',
+  'generation-vi': 'Kalos',
+  'generation-vii': 'Alola',
+  'generation-viii': 'Galar',
+  'generation-ix': 'Paldea',
+}
+
+function getRegionalFormOverride(name: string) {
+  const normalizedName = normalizePokemonName(name)
+
+  if (normalizedName.includes('hisui')) {
+    return 'Hisui'
+  }
+
+  if (normalizedName.includes('alola')) {
+    return 'Alola'
+  }
+
+  if (normalizedName.includes('galar')) {
+    return 'Galar'
+  }
+
+  if (normalizedName.includes('paldea')) {
+    return 'Paldea'
+  }
+
+  return null
+}
+
+function resolveOriginRegion(name: string, generationName?: string) {
+  const regionalOverride = getRegionalFormOverride(name)
+
+  if (regionalOverride) {
+    return regionalOverride
+  }
+
+  if (generationName && generationRegionMap[generationName]) {
+    return generationRegionMap[generationName]
+  }
+
+  return 'Unknown'
+}
+
+function renderRegionTile(region: string) {
+  const words = region.split(/\s+/).filter(Boolean)
+
+  return (
+    <span className="tile tile-region tile-revealed" aria-label={region}>
+      <span className="stage-stack">
+        {words.map((word) => (
+          <span key={word} className="stage-word">
+            {word}
+          </span>
+        ))}
+      </span>
+    </span>
+  )
+}
+
 function findSpeciesInChain(chain: EvolutionChainNode | undefined, speciesName: string): EvolutionChainNode | null {
   if (!chain) {
     return null
@@ -345,12 +409,13 @@ function App() {
   const [resultModalOpen, setResultModalOpen] = useState(false)
   const [resultImageUrl, setResultImageUrl] = useState('')
   const [evolutionStage, setEvolutionStage] = useState<EvolutionStage>('loading')
+  const [originRegion, setOriginRegion] = useState('loading')
   const [streakState, setStreakState] = useState<StreakState>(() => loadStreakState(getDailySeed()))
   const [copyStatus, setCopyStatus] = useState('')
   const [creditsOpen, setCreditsOpen] = useState(false)
 
   const target = useMemo(() => getPokemonBySeed(seed), [seed])
-  const { weaknesses, neutral, resistances, immunities } = useMemo(
+  const { weaknesses, resistances, immunities } = useMemo(
     () => getTypeSummary(target),
     [target],
   )
@@ -367,25 +432,17 @@ function App() {
   }, [guessValue])
   const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed
 
-  const neutralVisible = wrongGuessCount >= 1
+  const weaknessVisible = wrongGuessCount >= 1
   const resistanceVisible = wrongGuessCount >= 2
   const immunityVisible = wrongGuessCount >= 3
-  const evolutionVisible = wrongGuessCount >= 4
+  const regionVisible = wrongGuessCount >= 4
   const abilityVisible = wrongGuessCount >= 5
   const guessesLeft = Math.max(0, 6 - wrongGuessCount)
 
   useEffect(() => {
     let cancelled = false
 
-    async function loadEvolutionStage() {
-      if (isMegaFormName(target.name)) {
-        if (!cancelled) {
-          setEvolutionStage('mega')
-        }
-
-        return
-      }
-
+    async function loadPokemonClueMetadata() {
       try {
         const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${toPokemonSlug(target.name)}`)
 
@@ -407,6 +464,20 @@ function App() {
         }
 
         const speciesData = await speciesResponse.json()
+        const resolvedRegion = resolveOriginRegion(target.name, speciesData?.generation?.name)
+
+        if (!cancelled) {
+          setOriginRegion(resolvedRegion)
+        }
+
+        if (isMegaFormName(target.name)) {
+          if (!cancelled) {
+            setEvolutionStage('mega')
+          }
+
+          return
+        }
+
         const evolutionChainUrl = speciesData?.evolution_chain?.url
 
         if (!evolutionChainUrl) {
@@ -427,13 +498,15 @@ function App() {
         }
       } catch {
         if (!cancelled) {
-          setEvolutionStage('no-evolution-line')
+          setEvolutionStage(isMegaFormName(target.name) ? 'mega' : 'no-evolution-line')
+          setOriginRegion(resolveOriginRegion(target.name))
         }
       }
     }
 
     setEvolutionStage('loading')
-    void loadEvolutionStage()
+    setOriginRegion('loading')
+    void loadPokemonClueMetadata()
 
     return () => {
       cancelled = true
@@ -574,7 +647,7 @@ function App() {
     }
 
     if (nextWrongGuessCount === 4) {
-      setMessage('Wrong guess. The evolution stage is now revealed.')
+      setMessage('Wrong guess. The region row is now revealed.')
       return
     }
 
@@ -588,7 +661,7 @@ function App() {
       return
     }
 
-    setMessage('Wrong guess. The neutral row is now revealed.')
+    setMessage('Wrong guess. The weakness row is now revealed.')
   }
 
   const applySuggestion = (name: string) => {
@@ -665,15 +738,15 @@ function App() {
 
         <section className="board-frame">
           <div className="board" aria-label="Type clue board">
-            <div className="row row-weakness">
-              <span className="row-label">Weak to</span>
-              <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness', 'multiplier')}</div>
+            <div className="row row-stage">
+              <span className="row-label">Evolution stage</span>
+              <div className="tile-group">{renderEvolutionTile(evolutionStage)}</div>
             </div>
 
-            <div className="row row-neutral">
-              <span className="row-label">Neutral</span>
+            <div className="row row-weakness">
+              <span className="row-label">Weak to</span>
               <div className="tile-group">
-                {neutralVisible ? renderTypeTiles(neutral, 'tile-neutral tile-revealed', 'neutral') : renderPlaceholderTile()}
+                {weaknessVisible ? renderTypeTiles(weaknesses, 'tile-weakness tile-revealed', 'multiplier') : renderPlaceholderTile()}
               </div>
             </div>
 
@@ -693,9 +766,11 @@ function App() {
               </div>
             </div>
 
-            <div className="row row-stage">
-              <span className="row-label">Evolution stage</span>
-              <div className="tile-group">{evolutionVisible ? renderEvolutionTile(evolutionStage) : renderPlaceholderTile()}</div>
+            <div className="row row-region">
+              <span className="row-label">Region</span>
+              <div className="tile-group">
+                {regionVisible ? (originRegion === 'loading' ? renderPlaceholderTile() : renderRegionTile(originRegion)) : renderPlaceholderTile()}
+              </div>
             </div>
 
             <div className="row row-ability">
