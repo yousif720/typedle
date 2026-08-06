@@ -463,6 +463,21 @@ function getPreviousSeed(seed: string) {
   return date.toISOString().slice(0, 10)
 }
 
+const practiceSeedPrefix = 'practice-'
+
+function isPracticeSeed(seed: string) {
+  return seed.startsWith(practiceSeedPrefix)
+}
+
+function createPracticeSeed() {
+  const randomId =
+    typeof window !== 'undefined' && window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+
+  return `${practiceSeedPrefix}${randomId}`
+}
+
 function normalizeUsername(username: string) {
   return username.trim().toLowerCase()
 }
@@ -982,10 +997,6 @@ function resolvePokemonForSeed(seed: string, assignments: DailyAssignments) {
   return getPokemonBySeed(seed)
 }
 
-function formatGuessCount(count: number) {
-  return `${count} guess${count === 1 ? '' : 'es'}`
-}
-
 function TypeDleLogo() {
   return (
     <svg className="typedle-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 118" aria-hidden="true" focusable="false">
@@ -1345,7 +1356,7 @@ function App() {
   }, [currentUserKey])
 
   useEffect(() => {
-    if (!currentUserKey) {
+    if (!currentUserKey || isPracticeSeed(seed)) {
       return
     }
 
@@ -1436,7 +1447,7 @@ function App() {
   }, [currentUserKey, seed, target.name, userCompletions, userCompletionsHydrated])
 
   useEffect(() => {
-    if (!currentUserKey || !dayStateHydrated) {
+    if (!currentUserKey || !dayStateHydrated || isPracticeSeed(seed)) {
       return
     }
 
@@ -1552,7 +1563,7 @@ function App() {
   }, [currentUserKey, failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
 
   useEffect(() => {
-    if (!currentUserKey || (!solved && !failed)) {
+    if (!currentUserKey || (!solved && !failed) || isPracticeSeed(seed)) {
       return
     }
 
@@ -1585,7 +1596,7 @@ function App() {
   }, [currentUserKey, failed, seed, solved, userStats, wrongGuessCount])
 
   useEffect(() => {
-    if (!currentUserKey || (!solved && !failed)) {
+    if (!currentUserKey || (!solved && !failed) || isPracticeSeed(seed)) {
       return
     }
 
@@ -1647,6 +1658,11 @@ function App() {
   }, [currentUserKey, failed, guessHistory, lastSubmittedPokemon, seed, solved, target.name, userCompletions, wrongGuessCount])
 
   useEffect(() => {
+    if (isPracticeSeed(seed)) {
+      setGlobalStats(createEmptyUserStats())
+      return
+    }
+
     let cancelled = false
 
     setGlobalStats(loadGlobalStatsForSeed(seed))
@@ -1676,7 +1692,7 @@ function App() {
   }, [seed])
 
   useEffect(() => {
-    if (!solved && !failed) {
+    if ((!solved && !failed) || isPracticeSeed(seed)) {
       return
     }
 
@@ -1774,12 +1790,19 @@ function App() {
 
   const guessCount = solved ? wrongGuessCount + 1 : wrongGuessCount
   const scoreValue = Math.max(0, 6 - wrongGuessCount)
+  const isPracticeRound = isPracticeSeed(seed)
+  const shareGrid = guessHistory
+    .map((_, index) => (solved && index === guessHistory.length - 1 ? '🟩' : '🟥'))
+    .join('\n')
+  const shareHeader = isPracticeRound
+    ? `TypeDle Practice ${solved ? guessCount : 'X'}/6`
+    : `TypeDle ${seed} ${solved ? guessCount : 'X'}/6`
   const shareText = [
-    `TypeDle ${seed}`,
-    solved ? `Solved in ${formatGuessCount(guessCount)}.` : `Failed after ${formatGuessCount(guessCount)}.`,
-    `Streak: ${streakState.current}`,
-    `Best streak: ${streakState.best}`,
-    `Answer: ${target.name}`,
+    shareHeader,
+    '',
+    shareGrid,
+    '',
+    isPracticeRound ? 'https://www.typedle.net' : `Streak: ${streakState.current} (best ${streakState.best})\nhttps://www.typedle.net`,
   ].join('\n')
 
   const copyResults = async () => {
@@ -1902,6 +1925,16 @@ function App() {
   const jumpToDay = (selectedSeed: string) => {
     setSeed(selectedSeed)
     setRewindOpen(false)
+  }
+
+  const startPracticeRound = () => {
+    setSeed(createPracticeSeed())
+    setRewindOpen(false)
+    setResultModalOpen(false)
+  }
+
+  const exitPracticeRound = () => {
+    setSeed(todaySeed)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -2032,12 +2065,12 @@ function App() {
                   Login
                 </button>
               )}
-              <div className="title-badge">Daily challenge</div>
+              <div className="title-badge">{isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
               <button type="button" className="mobile-top-button" onClick={() => setCreditsOpen(true)}>
                 Credits
               </button>
             </div>
-            <div className="desktop-title-badge title-badge">Daily challenge</div>
+            <div className="desktop-title-badge title-badge">{isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
             <h1 className="sr-only">TypeDle</h1>
             <TypeDleLogo />
             <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
@@ -2045,8 +2078,8 @@ function App() {
 
           <section className="game-hud" aria-label="Puzzle status">
             <div className="hud-chip">
-              <span className="hud-chip-label">Day</span>
-              <span className="hud-chip-value">{seed}</span>
+              <span className="hud-chip-label">{isPracticeRound ? 'Mode' : 'Day'}</span>
+              <span className="hud-chip-value">{isPracticeRound ? 'Practice' : seed}</span>
             </div>
             <div className="hud-chip">
               <span className="hud-chip-label">Streak</span>
@@ -2170,6 +2203,16 @@ function App() {
         </p>
 
         <footer className="site-footer">
+          {isPracticeRound ? (
+            <button type="button" className="footer-action" onClick={exitPracticeRound}>
+              Back to today&apos;s puzzle
+            </button>
+          ) : (
+            <button type="button" className="footer-action" onClick={startPracticeRound}>
+              Practice mode
+            </button>
+          )}
+          <span aria-hidden="true">·</span>
           <a href="/how-to-play.html">How to Play</a>
           <span aria-hidden="true">·</span>
           <a href="/about.html">About</a>
@@ -2316,28 +2359,35 @@ function App() {
                 </ol>
               </div>
             </div>
-            <div className="result-distribution" aria-label="Guess distribution">
-              <p className="result-stat-label">Guess distribution</p>
-              {guessDistributionOrder.map((guess) => {
-                const count = globalStats.guessDistribution[guess]
-                const fillPercent = Math.max(8, Math.round((count / maxDistributionCount) * 100))
+            {isPracticeRound ? (
+              <div className="result-distribution" aria-label="Guess distribution">
+                <p className="result-stat-label">Guess distribution</p>
+                <p className="distribution-signin-note">Practice rounds aren&apos;t included in global stats.</p>
+              </div>
+            ) : (
+              <div className="result-distribution" aria-label="Guess distribution">
+                <p className="result-stat-label">Guess distribution</p>
+                {guessDistributionOrder.map((guess) => {
+                  const count = globalStats.guessDistribution[guess]
+                  const fillPercent = Math.max(8, Math.round((count / maxDistributionCount) * 100))
 
-                return (
-                  <div key={guess} className="distribution-row">
-                    <span className="distribution-guess">{guess}</span>
-                    <div className="distribution-bar-track">
-                      <div className="distribution-bar-fill" style={{ width: `${fillPercent}%` }}>
-                        {count}
+                  return (
+                    <div key={guess} className="distribution-row">
+                      <span className="distribution-guess">{guess}</span>
+                      <div className="distribution-bar-track">
+                        <div className="distribution-bar-fill" style={{ width: `${fillPercent}%` }}>
+                          {count}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-              <p className="distribution-average">
-                Average attempts to win: <strong>{globalStats.wins > 0 ? averageWinAttempts.toFixed(2) : 'N/A'}</strong>
-                {' '}| Win rate: <strong>{winRate}%</strong>
-              </p>
-            </div>
+                  )
+                })}
+                <p className="distribution-average">
+                  Average attempts to win: <strong>{globalStats.wins > 0 ? averageWinAttempts.toFixed(2) : 'N/A'}</strong>
+                  {' '}| Win rate: <strong>{winRate}%</strong>
+                </p>
+              </div>
+            )}
             <div className="result-visual">
               {resultImageUrl ? (
                 <img className="result-image" src={resultImageUrl} alt={target.name} />
@@ -2348,6 +2398,9 @@ function App() {
             <div className="result-actions">
               <button type="button" className="result-share-button" onClick={copyResults}>
                 Copy results
+              </button>
+              <button type="button" className="result-share-button" onClick={startPracticeRound}>
+                {isPracticeRound ? 'Another practice round' : 'Practice round'}
               </button>
               <button type="button" className="result-close" onClick={() => setResultModalOpen(false)}>
                 Close
