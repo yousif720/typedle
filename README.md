@@ -124,4 +124,4 @@ Then build frontend with:
 
 - Your API must allow your frontend origin in CORS.
 - Both frontend and API should be HTTPS in production.
-- Browsers will block mixed-content calls (HTTPS page -> HTTP API).
+- Browsers will block the mixed-content calls (HTTPS page -> HTTP API). 
