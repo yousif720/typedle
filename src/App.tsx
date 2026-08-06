@@ -208,6 +208,7 @@ function renderTypeTiles(
 }
 
 type ClueMagnitudeGroup = {
+  key: string
   clues: readonly InteractionClue[]
   className: string
   labelMode: 'multiplier' | 'immune'
@@ -223,7 +224,7 @@ function renderClueMagnitudeRows(groups: readonly ClueMagnitudeGroup[]) {
   return (
     <div className="tile-subrows">
       {nonEmptyGroups.map((group) => (
-        <div className="tile-group" key={group.labelMode + group.className}>
+        <div className="tile-group" key={group.key}>
           {renderTypeTiles(group.clues, group.className, group.labelMode)}
         </div>
       ))}
@@ -2067,8 +2068,8 @@ function App() {
             <div className="row row-weakness">
               <span className="row-label">Weak to</span>
               {renderClueMagnitudeRows([
-                { clues: weaknesses4x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
-                { clues: weaknesses2x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
+                { key: 'weakness-4x', clues: weaknesses4x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
+                { key: 'weakness-2x', clues: weaknesses2x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
               ])}
             </div>
 
@@ -2088,9 +2089,9 @@ function App() {
               <span className="row-label">Resists</span>
               {resistanceVisible
                 ? renderClueMagnitudeRows([
-                    { clues: resistancesHalf, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
-                    { clues: resistancesQuarter, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
-                    { clues: immunities, className: 'tile-immunity tile-revealed', labelMode: 'immune' },
+                    { key: 'resistance-half', clues: resistancesHalf, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
+                    { key: 'resistance-quarter', clues: resistancesQuarter, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
+                    { key: 'immunity', clues: immunities, className: 'tile-immunity tile-revealed', labelMode: 'immune' },
                   ])
                 : <div className="tile-group">{renderPlaceholderTile()}</div>}
             </div>
