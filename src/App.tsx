@@ -22,7 +22,6 @@ type EvolutionStage = 'loading' | 'first' | 'middle' | 'final' | 'mega' | 'no-ev
 type EvolutionChainNode = {
   species?: { name?: string }
   evolves_to?: EvolutionChainNode[]
-  evolves_from_species?: { name?: string } | null
 }
 
 const dailyAssignmentsStorageKeyPrefix = 'typedle-daily-pokemon-v1-'
@@ -208,6 +207,30 @@ function renderTypeTiles(
   })
 }
 
+type ClueMagnitudeGroup = {
+  clues: readonly InteractionClue[]
+  className: string
+  labelMode: 'multiplier' | 'immune'
+}
+
+function renderClueMagnitudeRows(groups: readonly ClueMagnitudeGroup[]) {
+  const nonEmptyGroups = groups.filter((group) => group.clues.length > 0)
+
+  if (nonEmptyGroups.length === 0) {
+    return <div className="tile-group">{renderStopSymbol('none')}</div>
+  }
+
+  return (
+    <div className="tile-subrows">
+      {nonEmptyGroups.map((group) => (
+        <div className="tile-group" key={group.labelMode + group.className}>
+          {renderTypeTiles(group.clues, group.className, group.labelMode)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function renderPlaceholderTile() {
   return (
     <span className="tile tile-placeholder" aria-label="unrevealed clue">
@@ -233,7 +256,59 @@ function renderAbilityTile(ability: string) {
 }
 
 function toPokemonSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return name
+    .replace(/♀/g, '-f')
+    .replace(/♂/g, '-m')
+    .replace(/['’]/g, '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip accents, e.g. Flabébé -> Flabebe
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// Roster entries append these words to a base species name to describe a form
+// (e.g. "Charizard Mega X", "Raticate Totem Alola"). PokeAPI's species/evolution
+// data only exists under the base species slug, so guessing a form-qualified
+// slug (especially for the roster's non-canonical "Mega X/Y/Z" entries) is
+// unreliable. Stripping these words first gives a slug that always resolves.
+const formModifierWords = new Set([
+  'mega',
+  'x',
+  'y',
+  'z',
+  'primal',
+  'alola',
+  'cap',
+  'galar',
+  'hisui',
+  'paldea',
+  'totem',
+  'original',
+  'color',
+  'curly',
+  'droopy',
+  'stretchy',
+  'form',
+  'blaze',
+  'aqua',
+  'combat',
+  'three',
+  'segment',
+])
+
+function getBaseSpeciesName(name: string) {
+  const words = name.trim().split(/\s+/)
+
+  while (words.length > 1 && formModifierWords.has(words[words.length - 1].toLowerCase())) {
+    words.pop()
+  }
+
+  return words.join(' ')
+}
+
+function getBaseSpeciesSlug(name: string) {
+  return toPokemonSlug(getBaseSpeciesName(name))
 }
 
 function isMegaFormName(name: string) {
@@ -324,17 +399,29 @@ function renderRegionTile(region: string) {
   )
 }
 
-function findSpeciesInChain(chain: EvolutionChainNode | undefined, speciesName: string): EvolutionChainNode | null {
+type EvolutionChainMatch = {
+  node: EvolutionChainNode
+  // Number of evolution steps below the chain root. The evolution-chain API
+  // doesn't mark a node with its pre-evolution (that field only exists on the
+  // species resource), so depth from the root is what tells first/middle/final apart.
+  depth: number
+}
+
+function findSpeciesInChain(
+  chain: EvolutionChainNode | undefined,
+  speciesName: string,
+  depth = 0,
+): EvolutionChainMatch | null {
   if (!chain) {
     return null
   }
 
   if (chain.species?.name === speciesName) {
-    return chain
+    return { node: chain, depth }
   }
 
   for (const nextChain of chain.evolves_to ?? []) {
-    const found = findSpeciesInChain(nextChain, speciesName)
+    const found = findSpeciesInChain(nextChain, speciesName, depth + 1)
 
     if (found) {
       return found
@@ -345,14 +432,14 @@ function findSpeciesInChain(chain: EvolutionChainNode | undefined, speciesName: 
 }
 
 function resolveEvolutionStage(chain: EvolutionChainNode | undefined, speciesName: string): EvolutionStage {
-  const speciesNode = findSpeciesInChain(chain, speciesName)
+  const match = findSpeciesInChain(chain, speciesName)
 
-  if (!speciesNode) {
+  if (!match) {
     return 'no-evolution-line'
   }
 
-  const hasPreEvolution = Boolean(speciesNode.evolves_from_species)
-  const hasEvolutions = (speciesNode.evolves_to?.length ?? 0) > 0
+  const hasPreEvolution = match.depth > 0
+  const hasEvolutions = (match.node.evolves_to?.length ?? 0) > 0
 
   if (!hasPreEvolution && !hasEvolutions) {
     return 'no-evolution-line'
@@ -1071,6 +1158,10 @@ function App() {
     () => getTypeSummary(target),
     [target],
   )
+  const weaknesses4x = useMemo(() => weaknesses.filter((clue) => clue.multiplier >= 4), [weaknesses])
+  const weaknesses2x = useMemo(() => weaknesses.filter((clue) => clue.multiplier < 4), [weaknesses])
+  const resistancesQuarter = useMemo(() => resistances.filter((clue) => clue.multiplier <= 0.25), [resistances])
+  const resistancesHalf = useMemo(() => resistances.filter((clue) => clue.multiplier > 0.25), [resistances])
   const filteredSuggestions = useMemo(() => {
     const normalizedGuess = normalizePokemonName(guessValue)
 
@@ -1086,11 +1177,10 @@ function App() {
   const hasCompletionForSeed = Boolean(currentUserKey && userCompletions[seed])
   const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed && !isAccountSyncing && !hasCompletionForSeed
 
-  const evolutionVisible = wrongGuessCount >= 1
-  const resistanceVisible = wrongGuessCount >= 2
-  const immunityVisible = wrongGuessCount >= 3
-  const regionVisible = wrongGuessCount >= 4
-  const abilityVisible = wrongGuessCount >= 5
+  const regionVisible = wrongGuessCount >= 1
+  const evolutionVisible = wrongGuessCount >= 2
+  const resistanceVisible = wrongGuessCount >= 3
+  const abilityVisible = wrongGuessCount >= 4
   const guessesLeft = Math.max(0, 6 - wrongGuessCount)
   const isTodayChallenge = seed === todaySeed
   const isAuthenticated = Boolean(currentUserKey)
@@ -1365,20 +1455,8 @@ function App() {
 
     async function loadPokemonClueMetadata() {
       try {
-        const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${toPokemonSlug(target.name)}`)
-
-        if (!pokemonResponse.ok) {
-          throw new Error('Unable to load Pokémon species')
-        }
-
-        const pokemonData = await pokemonResponse.json()
-        const speciesUrl = pokemonData?.species?.url
-
-        if (!speciesUrl) {
-          throw new Error('Missing species URL')
-        }
-
-        const speciesResponse = await fetch(speciesUrl)
+        const speciesSlug = getBaseSpeciesSlug(target.name)
+        const speciesResponse = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${speciesSlug}`)
 
         if (!speciesResponse.ok) {
           throw new Error('Unable to load species data')
@@ -1771,26 +1849,26 @@ function App() {
     }
 
     if (nextWrongGuessCount === 5) {
-      setMessage('Wrong guess. The ability is now revealed.')
+      setMessage('Wrong guess. No more clues left.')
       return
     }
 
     if (nextWrongGuessCount === 4) {
-      setMessage('Wrong guess. The region row is now revealed.')
+      setMessage('Wrong guess. The ability is now revealed.')
       return
     }
 
     if (nextWrongGuessCount === 3) {
-      setMessage('Wrong guess. The immunity row is now revealed.')
+      setMessage('Wrong guess. The resistance and immunity rows are now revealed.')
       return
     }
 
     if (nextWrongGuessCount === 2) {
-      setMessage('Wrong guess. The resistance row is now revealed.')
+      setMessage('Wrong guess. The evolution stage row is now revealed.')
       return
     }
 
-    setMessage('Wrong guess. The evolution stage row is now revealed.')
+    setMessage('Wrong guess. The region row is now revealed.')
   }
 
   const applySuggestion = (name: string) => {
@@ -1988,7 +2066,17 @@ function App() {
           <div className="board" aria-label="Type clue board">
             <div className="row row-weakness">
               <span className="row-label">Weak to</span>
-              <div className="tile-group">{renderTypeTiles(weaknesses, 'tile-weakness tile-revealed', 'multiplier')}</div>
+              {renderClueMagnitudeRows([
+                { clues: weaknesses4x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
+                { clues: weaknesses2x, className: 'tile-weakness tile-revealed', labelMode: 'multiplier' },
+              ])}
+            </div>
+
+            <div className="row row-region">
+              <span className="row-label">Region</span>
+              <div className="tile-group">
+                {regionVisible ? (originRegion === 'loading' ? renderPlaceholderTile() : renderRegionTile(originRegion)) : renderPlaceholderTile()}
+              </div>
             </div>
 
             <div className="row row-stage">
@@ -1998,25 +2086,13 @@ function App() {
 
             <div className="row row-resistance">
               <span className="row-label">Resists</span>
-              <div className="tile-group">
-                {resistanceVisible
-                  ? renderTypeTiles(resistances, 'tile-resistance tile-revealed', 'multiplier')
-                  : renderPlaceholderTile()}
-              </div>
-            </div>
-
-            <div className="row row-immunity">
-              <span className="row-label">Immune to</span>
-              <div className="tile-group">
-                {immunityVisible ? renderTypeTiles(immunities, 'tile-immunity tile-revealed', 'immune') : renderPlaceholderTile()}
-              </div>
-            </div>
-
-            <div className="row row-region">
-              <span className="row-label">Region</span>
-              <div className="tile-group">
-                {regionVisible ? (originRegion === 'loading' ? renderPlaceholderTile() : renderRegionTile(originRegion)) : renderPlaceholderTile()}
-              </div>
+              {resistanceVisible
+                ? renderClueMagnitudeRows([
+                    { clues: resistancesHalf, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
+                    { clues: resistancesQuarter, className: 'tile-resistance tile-revealed', labelMode: 'multiplier' },
+                    { clues: immunities, className: 'tile-immunity tile-revealed', labelMode: 'immune' },
+                  ])
+                : <div className="tile-group">{renderPlaceholderTile()}</div>}
             </div>
 
             <div className="row row-ability">
@@ -2091,6 +2167,14 @@ function App() {
         <p className="status" aria-live="polite">
           {message || (isAccountSyncing ? 'Syncing your account history...' : hasCompletionForSeed ? 'This day is already completed on your account.' : solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
         </p>
+
+        <footer className="site-footer">
+          <a href="/how-to-play.html">How to Play</a>
+          <span aria-hidden="true">·</span>
+          <a href="/about.html">About</a>
+          <span aria-hidden="true">·</span>
+          <a href="/privacy.html">Privacy Policy</a>
+        </footer>
       </div>
 
       {rewindOpen && (

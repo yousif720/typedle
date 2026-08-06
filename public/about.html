@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>About | TypeDle</title>
+    <meta
+      name="description"
+      content="About TypeDle, an independent daily Pokémon type-matchup guessing game, its data sources, and how to get in touch."
+    />
+    <link rel="canonical" href="https://www.typedle.net/about.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <nav class="page-nav">
+        <a class="brand" href="/">TypeDle</a>
+        <a class="back-link" href="/">← Back to the game</a>
+      </nav>
+
+      <p class="page-eyebrow">About</p>
+      <h1>About TypeDle</h1>
+      <p>
+        TypeDle is a small daily puzzle game built for fans of Pokémon and Wordle-style
+        guessing games. Instead of letters, you're working with type matchups: weaknesses,
+        resistances, and immunities, alongside a Pokémon's evolution stage, home region, and
+        ability. It's a project built and maintained by one person as a hobby, and shared
+        publicly for anyone to play for free.
+      </p>
+
+      <h2>How it's built</h2>
+      <p>
+        TypeDle is a React and TypeScript web app with a small backend that tracks global
+        stats and optional player accounts. The daily puzzle, type-effectiveness math, and
+        clue reveals all run client-side; the backend only stores streaks, guess history, and
+        aggregate stats for players who choose to create an account.
+      </p>
+
+      <h2>Data sources and credits</h2>
+      <p>The Pokémon roster, artwork, and reference data used in TypeDle come from a few community sources:</p>
+      <ul>
+        <li><a href="https://archives.bulbagarden.net" target="_blank" rel="noreferrer">Bulbagarden</a>: type icon archive</li>
+        <li><a href="https://pokeapi.co" target="_blank" rel="noreferrer">PokeAPI</a>: roster data, evolution chains, and renders</li>
+        <li><a href="https://www.serebii.net/legendsz-a/megaevolutions.shtml" target="_blank" rel="noreferrer">Serebii</a>: Legends: Z-A Mega roster reference</li>
+        <li><a href="https://pokemondb.net" target="_blank" rel="noreferrer">Pokémon DB</a>: fallback artwork</li>
+      </ul>
+
+      <div class="card">
+        <h3>Fan project disclaimer</h3>
+        <p>
+          TypeDle is an independent, non-commercial fan project. Pokémon and all related
+          names, characters, and images are trademarks of Nintendo, Game Freak, and The
+          Pokémon Company. TypeDle is not affiliated with, endorsed by, or sponsored by any
+          of these companies.
+        </p>
+      </div>
+
+      <h2>Feedback and contact</h2>
+      <p>
+        Found a bug, have a suggestion, or spotted an incorrect clue? Reach out at
+        <a href="mailto:ybgamer44@gmail.com">ybgamer44@gmail.com</a> or open an issue on
+        <a href="https://github.com/yousif720/typedle/issues" target="_blank" rel="noreferrer">GitHub</a>.
+      </p>
+
+      <p class="page-footer">
+        <a href="/">Play today's puzzle</a> · <a href="/how-to-play.html">How to Play</a> ·
+        <a href="/privacy.html">Privacy Policy</a>
+      </p>
+    </div>
+  </body>
+</html>

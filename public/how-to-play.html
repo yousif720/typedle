@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>How to Play | TypeDle</title>
+    <meta
+      name="description"
+      content="How to play TypeDle: guess the daily Pokémon in 6 tries using type-matchup clues like weaknesses, resistances, region, evolution stage, and ability."
+    />
+    <link rel="canonical" href="https://www.typedle.net/how-to-play.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <nav class="page-nav">
+        <a class="brand" href="/">TypeDle</a>
+        <a class="back-link" href="/">← Back to the game</a>
+      </nav>
+
+      <p class="page-eyebrow">Guide</p>
+      <h1>How to play TypeDle</h1>
+      <p>
+        TypeDle is a daily Pokémon guessing game. There's one secret Pokémon per day, shared by
+        everyone who plays. You get <strong>6 guesses</strong> to figure out who it is, and each
+        wrong guess reveals another clue about the answer's type matchups, origin, and traits.
+      </p>
+
+      <h2>The goal</h2>
+      <p>
+        Type a Pokémon's name into the guess box and submit it. If you're right, you win and the
+        round ends immediately. If you're wrong, the guess is recorded, a new clue row is
+        revealed, and you get another try, for up to 6 guesses total per day.
+      </p>
+
+      <h2>The clue rows</h2>
+      <p>The "Weak to" row is visible from the start. Every wrong guess reveals one more row, in this order:</p>
+      <ul class="row-list">
+        <li><strong>Weak to</strong><span>Always visible. Types that deal super-effective damage to the answer, split into a 4x row and a 2x row.</span></li>
+        <li><strong>Region</strong><span>Revealed after guess 1. The Pokédex region the answer originally comes from (e.g. Kanto, Galar, Paldea).</span></li>
+        <li><strong>Evolution stage</strong><span>Revealed after guess 2. Whether the answer is a first-stage, middle-stage, final-stage, Mega, or non-evolving Pokémon.</span></li>
+        <li><strong>Resists</strong><span>Revealed after guess 3. Types that deal reduced damage to the answer (1/2x, then 1/4x), plus any types the answer is fully immune to (0x).</span></li>
+        <li><strong>Ability</strong><span>Revealed after guess 4. One of the answer's abilities.</span></li>
+      </ul>
+      <p>
+        Guesses 5 and 6 don't reveal anything new; they're your last chances to use everything
+        you've already seen to lock in the answer.
+      </p>
+
+      <h2>Streaks and stats</h2>
+      <p>
+        Solve the daily puzzle to keep your streak going. Miss a day or run out of guesses and it
+        resets. Your best streak is saved so you can track your progress over time. Every result
+        also contributes to a global guess-distribution chart, so you can see how everyone else
+        did on the same puzzle.
+      </p>
+
+      <h2>Accounts and history</h2>
+      <p>
+        Playing as a guest works fine, but creating an account lets your streak, stats, and
+        completed days sync across devices. You can also use the rewind picker to replay any
+        previous day's puzzle.
+      </p>
+
+      <div class="card">
+        <h3>Tip</h3>
+        <p>
+          Start with a Pokémon whose typing you're confident about. The "Weak to" row alone often
+          narrows things down to a handful of type combinations before you've used a single guess.
+        </p>
+      </div>
+
+      <p class="page-footer">
+        <a href="/">Play today's puzzle</a> · <a href="/about.html">About</a> ·
+        <a href="/privacy.html">Privacy Policy</a>
+      </p>
+    </div>
+  </body>
+</html>
