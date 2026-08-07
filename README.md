@@ -99,6 +99,19 @@ Use any Node host (Render, Railway, Fly.io, VPS, etc.) for `server/index.js`.
 	- `GET /api/stats/global`
 	- `POST /api/stats/global`
 
+### 2b) Persistent storage on Render (do this or accounts will reset on every deploy)
+
+The server stores accounts and stats as JSON files under a data directory (`DATA_DIR`, defaulting to `server/data` inside the app itself). Render rebuilds the app from a fresh git checkout on every deploy, so if `DATA_DIR` points inside the checkout (the default), your data resets every time you push. `server/data/*.json` is also gitignored on purpose — never commit runtime data, since a later `git checkout`/deploy would overwrite the live database with whatever was last committed.
+
+To fix this on Render:
+
+1. In the Render dashboard, open your web service → **Disks** → **Add Disk**. This requires a paid instance type (Starter or higher) — free web services can't attach disks.
+2. Pick a mount path, e.g. `/var/data`. Any size is fine to start (1 GB is plenty for this app).
+3. In the service's **Environment** settings, add: `DATA_DIR=/var/data` (matching the mount path from step 2).
+4. Redeploy. The server will create `users.json` and `global-stats.json` on the disk automatically on first boot (see `ensureStatsFile` in `server/index.js`). Because the disk is a separate persistent volume from the app's code checkout, it survives every future deploy.
+
+If you're not ready to pay for a disk, the alternative is moving storage off the local filesystem entirely (a free hosted database like Supabase/Neon Postgres or Upstash Redis) — ask for that migration if you'd rather go that route later.
+
 ### 3) Point frontend to that API
 
 Set a Vite environment variable at build time:
