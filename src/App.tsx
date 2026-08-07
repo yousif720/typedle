@@ -4,8 +4,10 @@ import './App.css'
 import {
   type InteractionClue,
   type PokemonEntry,
+  type PokemonType,
   getDailySeed,
   getPokemonBySeed,
+  getTypeMatchFeedback,
   getTypeSummary,
   normalizePokemonName,
   pokemonLookup,
@@ -207,6 +209,53 @@ function renderTypeTiles(
       </span>
     )
   })
+}
+
+function renderGuessTypeChips(guessedTypes: PokemonType[], targetTypes: PokemonType[]) {
+  const typeMatches = getTypeMatchFeedback(guessedTypes, targetTypes)
+
+  return (
+    <span className="guess-type-chips">
+      {typeMatches.map((match) => (
+        <span
+          key={match.type}
+          className={`guess-type-chip${match.isMatch ? ' is-match' : ''}`}
+          title={`${match.type}: ${match.isMatch ? 'match' : 'no match'}`}
+          aria-label={`${match.type}: ${match.isMatch ? 'match' : 'no match'}`}
+        >
+          <img src={typeIconUrls[match.type as keyof typeof typeIconUrls]} alt="" aria-hidden="true" />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function renderGuessHistoryList(guessHistory: readonly string[], targetTypes: PokemonType[]) {
+  if (guessHistory.length === 0) {
+    return (
+      <ol className="result-guess-list" aria-label="Your guesses list">
+        <li className="result-guess-item">
+          <strong className="result-guess-name">N/A</strong>
+        </li>
+      </ol>
+    )
+  }
+
+  return (
+    <ol className="result-guess-list" aria-label="Your guesses list">
+      {guessHistory.map((guessName, guessIndex) => {
+        const guessedPokemon = pokemonLookup.get(normalizePokemonName(guessName))
+
+        return (
+          <li key={`${guessName}-${guessIndex}`} className="result-guess-item">
+            <span className="result-guess-index">#{guessIndex + 1}</span>
+            <strong className="result-guess-name">{guessName}</strong>
+            {guessedPokemon ? renderGuessTypeChips(guessedPokemon.types, targetTypes) : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
 }
 
 type ClueMagnitudeGroup = {
@@ -2420,6 +2469,13 @@ function App() {
           {message || (isAccountSyncing ? 'Syncing your account history...' : hasCompletionForSeed ? 'This day is already completed on your account.' : solved ? 'Solved.' : failed ? 'Failed.' : 'Guess to reveal the next row.')}
         </p>
 
+        {guessHistory.length > 0 && (
+          <section className="guess-history-section" aria-label="Your guesses so far">
+            <p className="guess-history-label">Your guesses</p>
+            {renderGuessHistoryList(guessHistory, target.types)}
+          </section>
+        )}
+
         <footer className="site-footer">
           {isPracticeRound ? (
             <button type="button" className="footer-action" onClick={exitPracticeRound}>
@@ -2712,16 +2768,7 @@ function App() {
               </div>
               <div className="result-stat result-stat-guesses">
                 <span className="result-stat-label">Your guesses</span>
-                <ol className="result-guess-list" aria-label="Your guesses list">
-                  {guessHistory.length > 0
-                    ? guessHistory.map((guessName, guessIndex) => (
-                        <li key={`${guessName}-${guessIndex}`} className="result-guess-item">
-                          <span className="result-guess-index">#{guessIndex + 1}</span>
-                          <strong className="result-guess-name">{guessName}</strong>
-                        </li>
-                      ))
-                    : <li className="result-guess-item"><strong className="result-guess-name">N/A</strong></li>}
-                </ol>
+                {renderGuessHistoryList(guessHistory, target.types)}
               </div>
             </div>
             {isPracticeRound ? (
