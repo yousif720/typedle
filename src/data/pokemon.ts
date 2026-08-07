@@ -278,3 +278,18 @@ export function getTypeSummary(target: PokemonEntry) {
     immunities: queue.filter((clue) => clue.category === 'immunity'),
   }
 }
+
+export type TypeMatch = {
+  type: PokemonType
+  isMatch: boolean
+}
+
+// Wordle-style partial credit: for each of the guessed Pokemon's types, was
+// that type also one of the target's types? Order follows the guess's own
+// types array so a guess always renders the same way regardless of target.
+export function getTypeMatchFeedback(guessedTypes: PokemonType[], targetTypes: PokemonType[]): TypeMatch[] {
+  return guessedTypes.map((type) => ({
+    type,
+    isMatch: targetTypes.includes(type),
+  }))
+}

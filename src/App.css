@@ -959,7 +959,7 @@
 
 .result-guess-item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -986,6 +986,57 @@
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--text-strong);
+}
+
+.guess-type-chips {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.guess-type-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  opacity: 0.55;
+}
+
+.guess-type-chip.is-match {
+  background: var(--success);
+  border-color: var(--success);
+  opacity: 1;
+}
+
+.guess-type-chip img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.guess-history-section {
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.guess-history-label {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.guess-history-section .result-guess-list {
+  gap: 6px;
 }
 
 .result-stat-value {
