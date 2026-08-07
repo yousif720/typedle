@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const dataDir = path.join(__dirname, 'data')
+// In production this must point at a Render persistent disk's mount path via
+// the DATA_DIR env var. Without it, data lives inside the app's own checkout
+// and gets wiped on every deploy (the checkout is rebuilt from git each time).
+const dataDir = process.env.DATA_DIR?.trim() || path.join(__dirname, 'data')
 const statsFilePath = path.join(dataDir, 'global-stats.json')
 const usersFilePath = path.join(dataDir, 'users.json')
 const seedPattern = /^\d{4}-\d{2}-\d{2}$/

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Runtime data (this is a live database, not source — never commit it,
+# or every deploy that checks out this repo will overwrite production data)
+server/data/*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

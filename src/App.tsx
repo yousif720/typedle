@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react'
 import './App.css'
 import {
   type InteractionClue,
+  type PokemonEntry,
   getDailySeed,
   getPokemonBySeed,
   getTypeSummary,
@@ -10,6 +11,7 @@ import {
   pokemonLookup,
   pokemonPool,
 } from './data/pokemon'
+import { pokemonRegions } from './data/pokemon.regions.generated'
 
 type StreakState = {
   current: number
@@ -464,18 +466,122 @@ function getPreviousSeed(seed: string) {
 }
 
 const practiceSeedPrefix = 'practice-'
+const challengeSeedPrefix = 'challenge-'
 
 function isPracticeSeed(seed: string) {
   return seed.startsWith(practiceSeedPrefix)
 }
 
-function createPracticeSeed() {
-  const randomId =
-    typeof window !== 'undefined' && window.crypto?.randomUUID
-      ? window.crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+function isChallengeSeed(seed: string) {
+  return seed.startsWith(challengeSeedPrefix)
+}
 
-  return `${practiceSeedPrefix}${randomId}`
+// Practice rounds and create-a-dle challenge rounds are both one-off, not tied
+// to a calendar day, and must never touch streaks, per-user stats, completions,
+// or the shared global stats file.
+function isNonDailySeed(seed: string) {
+  return isPracticeSeed(seed) || isChallengeSeed(seed)
+}
+
+function createRandomId() {
+  return typeof window !== 'undefined' && window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function createPracticeSeed() {
+  return `${practiceSeedPrefix}${createRandomId()}`
+}
+
+function createChallengeSeed() {
+  return `${challengeSeedPrefix}${createRandomId()}`
+}
+
+const challengeQueryParam = 'dle'
+
+function encodeChallengePokemonName(name: string) {
+  return typeof window === 'undefined' ? '' : window.btoa(encodeURIComponent(name))
+}
+
+function decodeChallengePokemonName(encoded: string) {
+  try {
+    return decodeURIComponent(window.atob(encoded))
+  } catch {
+    return null
+  }
+}
+
+function readChallengeCodeFromLocation() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  return params.get(challengeQueryParam)
+}
+
+function resolveInitialChallengePokemon(): PokemonEntry | null {
+  const code = readChallengeCodeFromLocation()
+
+  if (!code) {
+    return null
+  }
+
+  const decodedName = decodeChallengePokemonName(code)
+  return (decodedName && pokemonLookup.get(normalizePokemonName(decodedName))) || null
+}
+
+const practiceRegionOrder = [
+  'Kanto',
+  'Johto',
+  'Hoenn',
+  'Sinnoh',
+  'Unova',
+  'Kalos',
+  'Alola',
+  'Galar',
+  'Hisui',
+  'Paldea',
+]
+
+type MegaFilter = 'all' | 'exclude' | 'only'
+
+type PracticeFilters = {
+  // Empty set means "no region filter" (every region allowed).
+  regions: Set<string>
+  megaFilter: MegaFilter
+}
+
+function createDefaultPracticeFilters(): PracticeFilters {
+  return { regions: new Set(), megaFilter: 'all' }
+}
+
+function matchesPracticeFilters(pokemon: PokemonEntry, filters: PracticeFilters) {
+  if (filters.regions.size > 0) {
+    const region = pokemonRegions[pokemon.name] ?? 'Unknown'
+
+    if (!filters.regions.has(region)) {
+      return false
+    }
+  }
+
+  if (filters.megaFilter === 'exclude' && isMegaFormName(pokemon.name)) {
+    return false
+  }
+
+  if (filters.megaFilter === 'only' && !isMegaFormName(pokemon.name)) {
+    return false
+  }
+
+  return true
+}
+
+function getFilteredPracticePool(filters: PracticeFilters) {
+  return pokemonPool.filter((pokemon) => matchesPracticeFilters(pokemon, filters))
+}
+
+function pickRandomPokemon(candidates: readonly PokemonEntry[]) {
+  return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
 function normalizeUsername(username: string) {
@@ -1124,7 +1230,7 @@ function TypeDleLogo() {
 
 function App() {
   const [todaySeed] = useState(() => getDailySeed())
-  const [seed, setSeed] = useState(todaySeed)
+  const [seed, setSeed] = useState(() => (resolveInitialChallengePokemon() ? createChallengeSeed() : todaySeed))
   const [currentUserKey, setCurrentUserKey] = useState<string | null>(() => {
     if (typeof window === 'undefined') {
       return null
@@ -1164,8 +1270,38 @@ function App() {
   const [authPassword, setAuthPassword] = useState('')
   const [authStatus, setAuthStatus] = useState('')
   const [authOpen, setAuthOpen] = useState(false)
+  const [practiceOverridePokemon, setPracticeOverridePokemon] = useState<PokemonEntry | null>(() =>
+    resolveInitialChallengePokemon(),
+  )
+  const [practiceFilters, setPracticeFilters] = useState<PracticeFilters>(() => createDefaultPracticeFilters())
+  const [customizerOpen, setCustomizerOpen] = useState(false)
+  const [customizerStatus, setCustomizerStatus] = useState('')
+  const [createADleOpen, setCreateADleOpen] = useState(false)
+  const [createADleSearch, setCreateADleSearch] = useState('')
+  const [createADleLink, setCreateADleLink] = useState('')
+  const [createADleCopyStatus, setCreateADleCopyStatus] = useState('')
 
-  const target = useMemo(() => resolvePokemonForSeed(seed, dailyAssignments), [dailyAssignments, seed])
+  // A create-a-dle link (?dle=<encoded name>) is already folded into the seed/
+  // practiceOverridePokemon initial state above. Here we just strip the query
+  // param from the address bar once, so refreshing or re-sharing the URL from
+  // the bar doesn't carry the answer along.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !readChallengeCodeFromLocation()) {
+      return
+    }
+
+    const cleanUrl = new URL(window.location.href)
+    cleanUrl.searchParams.delete(challengeQueryParam)
+    window.history.replaceState(null, '', cleanUrl.toString())
+  }, [])
+
+  const target = useMemo(() => {
+    if (isNonDailySeed(seed) && practiceOverridePokemon) {
+      return practiceOverridePokemon
+    }
+
+    return resolvePokemonForSeed(seed, dailyAssignments)
+  }, [dailyAssignments, practiceOverridePokemon, seed])
   const { weaknesses, resistances, immunities } = useMemo(
     () => getTypeSummary(target),
     [target],
@@ -1174,6 +1310,7 @@ function App() {
   const weaknesses2x = useMemo(() => weaknesses.filter((clue) => clue.multiplier < 4), [weaknesses])
   const resistancesQuarter = useMemo(() => resistances.filter((clue) => clue.multiplier <= 0.25), [resistances])
   const resistancesHalf = useMemo(() => resistances.filter((clue) => clue.multiplier > 0.25), [resistances])
+  const customizerCandidateCount = useMemo(() => getFilteredPracticePool(practiceFilters).length, [practiceFilters])
   const filteredSuggestions = useMemo(() => {
     const normalizedGuess = normalizePokemonName(guessValue)
 
@@ -1185,6 +1322,17 @@ function App() {
       .filter((pokemon) => normalizePokemonName(pokemon.name).includes(normalizedGuess))
       .slice(0, 8)
   }, [guessValue])
+  const createADleSuggestions = useMemo(() => {
+    const normalizedSearch = normalizePokemonName(createADleSearch)
+
+    if (!normalizedSearch) {
+      return []
+    }
+
+    return pokemonPool
+      .filter((pokemon) => normalizePokemonName(pokemon.name).includes(normalizedSearch))
+      .slice(0, 8)
+  }, [createADleSearch])
   const isAccountSyncing = Boolean(currentUserKey) && !userCompletionsHydrated
   const hasCompletionForSeed = Boolean(currentUserKey && userCompletions[seed])
   const showPicker = pickerOpen && filteredSuggestions.length > 0 && !solved && !failed && !isAccountSyncing && !hasCompletionForSeed
@@ -1356,7 +1504,7 @@ function App() {
   }, [currentUserKey])
 
   useEffect(() => {
-    if (!currentUserKey || isPracticeSeed(seed)) {
+    if (!currentUserKey || isNonDailySeed(seed)) {
       return
     }
 
@@ -1447,7 +1595,7 @@ function App() {
   }, [currentUserKey, seed, target.name, userCompletions, userCompletionsHydrated])
 
   useEffect(() => {
-    if (!currentUserKey || !dayStateHydrated || isPracticeSeed(seed)) {
+    if (!currentUserKey || !dayStateHydrated || isNonDailySeed(seed)) {
       return
     }
 
@@ -1563,7 +1711,7 @@ function App() {
   }, [currentUserKey, failed, isTodayChallenge, seed, solved, streakState.best, streakState.current, streakState.lastSeed])
 
   useEffect(() => {
-    if (!currentUserKey || (!solved && !failed) || isPracticeSeed(seed)) {
+    if (!currentUserKey || (!solved && !failed) || isNonDailySeed(seed)) {
       return
     }
 
@@ -1596,7 +1744,7 @@ function App() {
   }, [currentUserKey, failed, seed, solved, userStats, wrongGuessCount])
 
   useEffect(() => {
-    if (!currentUserKey || (!solved && !failed) || isPracticeSeed(seed)) {
+    if (!currentUserKey || (!solved && !failed) || isNonDailySeed(seed)) {
       return
     }
 
@@ -1658,7 +1806,7 @@ function App() {
   }, [currentUserKey, failed, guessHistory, lastSubmittedPokemon, seed, solved, target.name, userCompletions, wrongGuessCount])
 
   useEffect(() => {
-    if (isPracticeSeed(seed)) {
+    if (isNonDailySeed(seed)) {
       setGlobalStats(createEmptyUserStats())
       return
     }
@@ -1692,7 +1840,7 @@ function App() {
   }, [seed])
 
   useEffect(() => {
-    if ((!solved && !failed) || isPracticeSeed(seed)) {
+    if ((!solved && !failed) || isNonDailySeed(seed)) {
       return
     }
 
@@ -1790,13 +1938,16 @@ function App() {
 
   const guessCount = solved ? wrongGuessCount + 1 : wrongGuessCount
   const scoreValue = Math.max(0, 6 - wrongGuessCount)
-  const isPracticeRound = isPracticeSeed(seed)
+  const isPracticeRound = isNonDailySeed(seed)
+  const isChallengeRound = isChallengeSeed(seed)
   const shareGrid = guessHistory
     .map((_, index) => (solved && index === guessHistory.length - 1 ? '🟩' : '🟥'))
     .join('\n')
-  const shareHeader = isPracticeRound
-    ? `TypeDle Practice ${solved ? guessCount : 'X'}/6`
-    : `TypeDle ${seed} ${solved ? guessCount : 'X'}/6`
+  const shareHeader = isChallengeRound
+    ? `TypeDle Challenge ${solved ? guessCount : 'X'}/6`
+    : isPracticeRound
+      ? `TypeDle Practice ${solved ? guessCount : 'X'}/6`
+      : `TypeDle ${seed} ${solved ? guessCount : 'X'}/6`
   const shareText = [
     shareHeader,
     '',
@@ -1927,14 +2078,81 @@ function App() {
     setRewindOpen(false)
   }
 
-  const startPracticeRound = () => {
+  const startPracticeRound = (filtersOverride?: PracticeFilters) => {
+    const activeFilters = filtersOverride ?? practiceFilters
+    const candidates = getFilteredPracticePool(activeFilters)
+
+    if (candidates.length === 0) {
+      setCustomizerStatus('No Pokémon match these filters. Try widening your selection.')
+      setCustomizerOpen(true)
+      return
+    }
+
+    setPracticeOverridePokemon(pickRandomPokemon(candidates))
     setSeed(createPracticeSeed())
     setRewindOpen(false)
     setResultModalOpen(false)
+    setCustomizerOpen(false)
+    setCustomizerStatus('')
   }
 
   const exitPracticeRound = () => {
     setSeed(todaySeed)
+    setPracticeOverridePokemon(null)
+  }
+
+  const openCustomizer = () => {
+    setCustomizerStatus('')
+    setCustomizerOpen(true)
+  }
+
+  const toggleCustomizerRegion = (region: string) => {
+    setCustomizerStatus('')
+    setPracticeFilters((current) => {
+      const nextRegions = new Set(current.regions)
+
+      if (nextRegions.has(region)) {
+        nextRegions.delete(region)
+      } else {
+        nextRegions.add(region)
+      }
+
+      return { ...current, regions: nextRegions }
+    })
+  }
+
+  const setCustomizerMegaFilter = (megaFilter: MegaFilter) => {
+    setCustomizerStatus('')
+    setPracticeFilters((current) => ({ ...current, megaFilter }))
+  }
+
+  const resetCustomizerFilters = () => {
+    setPracticeFilters(createDefaultPracticeFilters())
+    setCustomizerStatus('')
+  }
+
+  const openCreateADle = () => {
+    setCreateADleSearch('')
+    setCreateADleLink('')
+    setCreateADleCopyStatus('')
+    setCreateADleOpen(true)
+  }
+
+  const selectCreateADlePokemon = (name: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : ''
+    const link = `${origin}?${challengeQueryParam}=${encodeChallengePokemonName(name)}`
+    setCreateADleSearch(name)
+    setCreateADleLink(link)
+    setCreateADleCopyStatus('')
+  }
+
+  const copyCreateADleLink = async () => {
+    try {
+      await navigator.clipboard.writeText(createADleLink)
+      setCreateADleCopyStatus('Link copied.')
+    } catch {
+      setCreateADleCopyStatus('Copy failed.')
+    }
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -2065,12 +2283,12 @@ function App() {
                   Login
                 </button>
               )}
-              <div className="title-badge">{isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
+              <div className="title-badge">{isChallengeRound ? 'Friend challenge' : isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
               <button type="button" className="mobile-top-button" onClick={() => setCreditsOpen(true)}>
                 Credits
               </button>
             </div>
-            <div className="desktop-title-badge title-badge">{isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
+            <div className="desktop-title-badge title-badge">{isChallengeRound ? 'Friend challenge' : isPracticeRound ? 'Practice mode' : 'Daily challenge'}</div>
             <h1 className="sr-only">TypeDle</h1>
             <TypeDleLogo />
             <p className="subtitle">Guess the Pokémon one clue row at a time.</p>
@@ -2079,7 +2297,7 @@ function App() {
           <section className="game-hud" aria-label="Puzzle status">
             <div className="hud-chip">
               <span className="hud-chip-label">{isPracticeRound ? 'Mode' : 'Day'}</span>
-              <span className="hud-chip-value">{isPracticeRound ? 'Practice' : seed}</span>
+              <span className="hud-chip-value">{isChallengeRound ? 'Challenge' : isPracticeRound ? 'Practice' : seed}</span>
             </div>
             <div className="hud-chip">
               <span className="hud-chip-label">Streak</span>
@@ -2208,10 +2426,20 @@ function App() {
               Back to today&apos;s puzzle
             </button>
           ) : (
-            <button type="button" className="footer-action" onClick={startPracticeRound}>
-              Practice mode
-            </button>
+            <>
+              <button type="button" className="footer-action" onClick={() => startPracticeRound()}>
+                Practice mode
+              </button>
+              <span aria-hidden="true">·</span>
+              <button type="button" className="footer-action" onClick={openCustomizer}>
+                Customize
+              </button>
+            </>
           )}
+          <span aria-hidden="true">·</span>
+          <button type="button" className="footer-action" onClick={openCreateADle}>
+            Create-a-dle
+          </button>
           <span aria-hidden="true">·</span>
           <a href="/how-to-play.html">How to Play</a>
           <span aria-hidden="true">·</span>
@@ -2268,6 +2496,143 @@ function App() {
 
             <p className="result-copy-status" aria-live="polite">
               {rewindStatus}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {customizerOpen && (
+        <div className="result-modal customizer-modal" role="dialog" aria-modal="true" aria-labelledby="customizer-title">
+          <div className="result-backdrop" onClick={() => setCustomizerOpen(false)} />
+          <div className="result-card customizer-card">
+            <p className="result-eyebrow">Practice customizer</p>
+            <h2 id="customizer-title">Choose your pool</h2>
+            <p className="result-copy">Filter which Pokémon can show up in practice rounds.</p>
+
+            <p className="rewind-date-label">Region</p>
+            <div className="customizer-chip-grid" role="group" aria-label="Region filter">
+              {practiceRegionOrder.map((region) => (
+                <button
+                  key={region}
+                  type="button"
+                  className={practiceFilters.regions.has(region) ? 'customizer-chip is-active' : 'customizer-chip'}
+                  aria-pressed={practiceFilters.regions.has(region)}
+                  onClick={() => toggleCustomizerRegion(region)}
+                >
+                  {region}
+                </button>
+              ))}
+            </div>
+
+            <p className="rewind-date-label">Mega / Primal forms</p>
+            <div className="customizer-chip-grid" role="group" aria-label="Mega and Primal form filter">
+              {(
+                [
+                  { value: 'all', label: 'Include all' },
+                  { value: 'exclude', label: 'No Mega/Primal' },
+                  { value: 'only', label: 'Only Mega/Primal' },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={practiceFilters.megaFilter === option.value ? 'customizer-chip is-active' : 'customizer-chip'}
+                  aria-pressed={practiceFilters.megaFilter === option.value}
+                  onClick={() => setCustomizerMegaFilter(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="customizer-count">
+              {customizerCandidateCount} Pokémon match these filters.
+            </p>
+
+            <div className="result-actions">
+              <button type="button" className="result-share-button" onClick={() => startPracticeRound()}>
+                Start practice round
+              </button>
+              <button type="button" className="result-close" onClick={resetCustomizerFilters}>
+                Reset filters
+              </button>
+              <button type="button" className="result-close" onClick={() => setCustomizerOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <p className="result-copy-status" aria-live="polite">
+              {customizerStatus}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {createADleOpen && (
+        <div className="result-modal create-a-dle-modal" role="dialog" aria-modal="true" aria-labelledby="create-a-dle-title">
+          <div className="result-backdrop" onClick={() => setCreateADleOpen(false)} />
+          <div className="result-card create-a-dle-card">
+            <p className="result-eyebrow">Create-a-dle</p>
+            <h2 id="create-a-dle-title">Challenge a friend</h2>
+            <p className="result-copy">
+              Pick any Pokémon and we&apos;ll generate a link that makes it the puzzle for whoever opens it.
+            </p>
+
+            <label className="rewind-date-label" htmlFor="create-a-dle-search">
+              Pokémon
+            </label>
+            <div className="guess-field">
+              <input
+                id="create-a-dle-search"
+                className="rewind-date-input"
+                autoComplete="off"
+                spellCheck={false}
+                value={createADleSearch}
+                onChange={(event) => {
+                  setCreateADleSearch(event.target.value)
+                  setCreateADleLink('')
+                  setCreateADleCopyStatus('')
+                }}
+                placeholder="Search for a Pokémon"
+              />
+
+              {createADleSuggestions.length > 0 && !createADleLink && (
+                <div className="guess-picker" role="listbox" aria-label="Pokémon suggestions">
+                  {createADleSuggestions.map((pokemon) => (
+                    <button
+                      key={pokemon.name}
+                      type="button"
+                      className="guess-option"
+                      role="option"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectCreateADlePokemon(pokemon.name)}
+                    >
+                      <span className="guess-option-name">{pokemon.name}</span>
+                      <span className="guess-option-meta">{pokemon.types.join(' / ')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {createADleLink && (
+              <p className="result-copy">
+                Link ready for <strong>{createADleSearch}</strong>. Share it and your friend&apos;s puzzle will be exactly
+                this Pokémon.
+              </p>
+            )}
+
+            <div className="result-actions">
+              <button type="button" className="result-share-button" onClick={copyCreateADleLink} disabled={!createADleLink}>
+                Copy link
+              </button>
+              <button type="button" className="result-close" onClick={() => setCreateADleOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <p className="result-copy-status" aria-live="polite">
+              {createADleCopyStatus}
             </p>
           </div>
         </div>
@@ -2362,7 +2727,7 @@ function App() {
             {isPracticeRound ? (
               <div className="result-distribution" aria-label="Guess distribution">
                 <p className="result-stat-label">Guess distribution</p>
-                <p className="distribution-signin-note">Practice rounds aren&apos;t included in global stats.</p>
+                <p className="distribution-signin-note">Practice and challenge rounds aren&apos;t included in global stats.</p>
               </div>
             ) : (
               <div className="result-distribution" aria-label="Guess distribution">
@@ -2399,8 +2764,18 @@ function App() {
               <button type="button" className="result-share-button" onClick={copyResults}>
                 Copy results
               </button>
-              <button type="button" className="result-share-button" onClick={startPracticeRound}>
+              <button type="button" className="result-share-button" onClick={() => startPracticeRound()}>
                 {isPracticeRound ? 'Another practice round' : 'Practice round'}
+              </button>
+              <button
+                type="button"
+                className="result-close"
+                onClick={() => {
+                  setResultModalOpen(false)
+                  openCustomizer()
+                }}
+              >
+                Customize
               </button>
               <button type="button" className="result-close" onClick={() => setResultModalOpen(false)}>
                 Close

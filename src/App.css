@@ -682,6 +682,51 @@
   width: min(100%, 520px);
 }
 
+.customizer-card {
+  width: min(100%, 560px);
+}
+
+.create-a-dle-card {
+  width: min(100%, 480px);
+}
+
+.customizer-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.customizer-chip {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.customizer-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.customizer-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.customizer-count {
+  margin: 0 0 16px;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
 .auth-card {
   width: min(100%, 460px);
 }
