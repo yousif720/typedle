@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 
-import { evaluateAchievements, countUnlocked } from '../../lib/achievements'
 import { guessDistributionBuckets } from '../../lib/gameRules'
 import type { StreakState, UserCompletionsMap, UserStats } from '../../lib/types'
 import { Modal } from '../Modal'
@@ -70,11 +69,6 @@ export function StatsModal({
   isAuthenticated,
   onRequestSignIn,
 }: StatsModalProps) {
-  const achievements = useMemo(
-    () => evaluateAchievements({ stats, streakState, completions }),
-    [completions, stats, streakState],
-  )
-
   const winRate = stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0
   const averageWin = stats.wins > 0 ? (stats.totalWinningGuesses / stats.wins).toFixed(2) : '—'
   const maxBucket = Math.max(1, ...guessDistributionBuckets.map((bucket) => stats.guessDistribution[bucket] ?? 0))
@@ -130,32 +124,6 @@ export function StatsModal({
 
           <h3 className="section-heading">Last 12 weeks</h3>
           <HistoryHeatmap completions={completions} />
-
-          <h3 className="section-heading">
-            Achievements <span className="section-count">{countUnlocked(achievements)}/{achievements.length}</span>
-          </h3>
-          <ul className="achievement-grid">
-            {achievements.map((achievement) => (
-              <li
-                key={achievement.id}
-                className={`achievement${achievement.unlocked ? ' is-unlocked' : ''}`}
-                title={achievement.description}
-              >
-                <span className="achievement-icon" aria-hidden="true">
-                  {achievement.icon}
-                </span>
-                <span className="achievement-body">
-                  <span className="achievement-name">{achievement.name}</span>
-                  <span className="achievement-description">{achievement.description}</span>
-                  {!achievement.unlocked && achievement.progress > 0 ? (
-                    <span className="achievement-progress">
-                      <span style={{ width: `${Math.round(achievement.progress * 100)}%` }} />
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
         </>
       )}
     </Modal>

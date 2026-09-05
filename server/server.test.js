@@ -66,7 +66,6 @@ beforeAll(async () => {
           },
           completions: {},
           friends: [],
-          achievements: [],
           sessions: {},
         },
       },

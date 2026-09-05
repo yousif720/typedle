@@ -169,9 +169,6 @@ export function sanitizeUsersStore(rawStore) {
       friends: Array.isArray(value.friends)
         ? [...new Set(value.friends.filter((entry) => typeof entry === 'string'))].slice(0, 500)
         : [],
-      achievements: Array.isArray(value.achievements)
-        ? [...new Set(value.achievements.filter((entry) => typeof entry === 'string'))].slice(0, 200)
-        : [],
       sessions: sanitizeSessions(value.sessions),
     }
   }

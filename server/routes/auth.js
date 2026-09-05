@@ -78,7 +78,6 @@ router.post(
             stats: createEmptyStats(),
             completions: {},
             friends: [],
-            achievements: [],
             sessions: {},
           },
         },
