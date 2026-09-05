@@ -30,7 +30,7 @@
 
       <p class="page-eyebrow">Legal</p>
       <h1>Privacy Policy</h1>
-      <p class="updated-note">Last updated: August 6, 2026</p>
+      <p class="updated-note">Last updated: September 5, 2026</p>
 
       <p>
         This policy explains what information TypeDle ("the site", "we") collects when you play,
@@ -41,21 +41,38 @@
       <h2>Information we collect</h2>
 
       <h3 style="margin-top: 1.2em;">Gameplay data stored in your browser</h3>
-      <p>To keep the game working day to day, TypeDle stores small pieces of data directly in your browser using cookies and local storage:</p>
+      <p>
+        To keep the game working day to day, TypeDle stores small pieces of data in your browser's
+        local storage. TypeDle itself sets no cookies, and local storage is never sent to our
+        server; it stays on your device:
+      </p>
       <ul>
         <li>Your current in-progress guesses, wrong-guess count, and result for the day's puzzle.</li>
+        <li>Your display preferences: theme, high contrast, reduced motion, sound, and hard mode.</li>
+        <li>Your saved practice filters, so the customizer opens where you left it.</li>
         <li>A cached copy of global stats (guess distribution, win rate) so the results screen loads quickly.</li>
         <li>A randomly generated guest ID, so repeated results from the same browser aren't counted twice in global stats.</li>
-        <li>If you're signed in, a record of which account is currently logged in on this device.</li>
+        <li>If you're signed in, your username and a session token for this device, so you stay signed in between visits. Signing out deletes both.</li>
       </ul>
       <p>None of this is used to identify you personally or track you across other websites.</p>
+
+      <h3 style="margin-top: 1.2em;">Offline cache</h3>
+      <p>
+        TypeDle registers a service worker so it keeps working without a connection and can be
+        installed as an app. It caches the site's own files (code, styles, images) in your
+        browser's cache storage. It stores no personal data, and clearing your browser's site
+        data removes it.
+      </p>
 
       <h3 style="margin-top: 1.2em;">Account data</h3>
       <p>
         Creating an account is optional. If you do, we store the username you choose, a
         cryptographically hashed version of your password (we never store or see your actual
-        password), your streak, your stats, and your history of completed daily puzzles. This
-        lets your progress sync across devices when you log in.
+        password), your streak, your stats, your history of completed daily puzzles, and the
+        usernames of any friends you add. This lets your progress sync across devices when you
+        log in. We never ask for an email address, a real name, or any other personal detail. If
+        you appear on the leaderboard, other players see only your username and your streak
+        numbers.
       </p>
 
       <h3 style="margin-top: 1.2em;">Standard server logs</h3>
@@ -69,9 +86,10 @@
       <h2>Third-party services</h2>
       <ul>
         <li>
-          <strong>PokeAPI</strong> (pokeapi.co): your browser fetches public Pokémon data
-          (sprites, evolution info) directly from this service to render clues. No personal
-          data is sent as part of these requests.
+          <strong>PokeAPI</strong> (pokeapi.co): the Pokémon data behind the clues is compiled
+          into the site ahead of time, so playing sends no requests to PokeAPI. The artwork shown
+          on the results screen is still loaded from PokeAPI's public sprite files on GitHub when
+          a round ends. No personal data is sent as part of those requests.
         </li>
         <li>
           <strong>Google Fonts</strong>: the site loads fonts from Google's font CDN, which may
@@ -91,9 +109,10 @@
 
       <h2>Cookies and your choices</h2>
       <p>
-        You can block or delete cookies at any time through your browser's settings. Doing so
-        may reset your in-progress puzzle or require you to log in again, but won't prevent you
-        from playing. If ads are shown on this site, you can opt out of personalized advertising
+        You can clear this site's stored data, and block or delete cookies set by the services
+        above, at any time through your browser's settings. Doing so may reset your in-progress
+        puzzle or require you to log in again, but won't prevent you from playing. If ads are
+        shown on this site, you can opt out of personalized advertising
         for participating providers via
         <a href="https://optout.aboutads.info" target="_blank" rel="noreferrer">optout.aboutads.info</a>
         or your Google Ad Settings linked above.
