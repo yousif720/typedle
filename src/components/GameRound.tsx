@@ -89,10 +89,6 @@ export function GameRound({
         wrongGuessCount={effectiveWrongCount}
       />
 
-      {hardMode && state.wrongGuessCount > 2 ? (
-        <p className="hard-mode-note">Hard mode: no more clues from here.</p>
-      ) : null}
-
       <GuessBar
         value={state.guessValue}
         onChange={setGuessValue}
@@ -103,7 +99,7 @@ export function GameRound({
       />
 
       <p className="status" role="status" aria-live="polite">
-        {statusMessage}
+        {hardMode && state.wrongGuessCount > 2 ? 'Hard mode: no more clues. ' : ''}{statusMessage}
         {isComplete ? (
           <button type="button" className="status-link" onClick={onOpenResult}>
             View result
@@ -112,7 +108,8 @@ export function GameRound({
       </p>
 
       <GuessHistory
-        heading={state.guessHistory.length > 0 ? `Guesses (${state.guessHistory.length}/${MAX_GUESSES})` : undefined}
+        heading={`Guesses (${state.guessHistory.length}/${MAX_GUESSES})`}
+        emptyLabel="No guesses yet. Try a Pokémon to unlock your next clue."
         guesses={state.guessHistory}
         targetTypes={target.types}
       />

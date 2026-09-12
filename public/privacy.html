@@ -30,7 +30,7 @@
 
       <p class="page-eyebrow">Legal</p>
       <h1>Privacy Policy</h1>
-      <p class="updated-note">Last updated: September 5, 2026</p>
+      <p class="updated-note">Last updated: September 12, 2026</p>
 
       <p>
         This policy explains what information TypeDle ("the site", "we") collects when you play,
@@ -43,8 +43,9 @@
       <h3 style="margin-top: 1.2em;">Gameplay data stored in your browser</h3>
       <p>
         To keep the game working day to day, TypeDle stores small pieces of data in your browser's
-        local storage. TypeDle itself sets no cookies, and local storage is never sent to our
-        server; it stays on your device:
+        local storage. The game uses local storage rather than its own cookies for the items
+        below. Some stored values are also sent to our API to authenticate your account,
+        sync progress, and count daily results, as described below:
       </p>
       <ul>
         <li>Your current in-progress guesses, wrong-guess count, and result for the day's puzzle.</li>
@@ -54,7 +55,19 @@
         <li>A randomly generated guest ID, so repeated results from the same browser aren't counted twice in global stats.</li>
         <li>If you're signed in, your username and a session token for this device, so you stay signed in between visits. Signing out deletes both.</li>
       </ul>
-      <p>None of this is used to identify you personally or track you across other websites.</p>
+      <p>
+        Your display preferences and practice filters stay on your device. When a daily round
+        ends, we send its date, win or loss, number of attempts, and an outcome identifier to
+        our API for global statistics. For guests, that identifier includes the randomly
+        generated guest ID; for signed-in players, it includes the account identifier. This
+        helps prevent duplicate results. Practice and shared challenge results are not submitted.
+      </p>
+      <p>
+        When you use account features, the session token stored on your device is sent to our
+        API to authenticate requests. Signed-in daily results, including guesses and progress,
+        are also sent to the API so they can be restored across devices. We do not use these
+        gameplay identifiers to track you across other websites.
+      </p>
 
       <h3 style="margin-top: 1.2em;">Offline cache</h3>
       <p>
@@ -67,10 +80,12 @@
       <h3 style="margin-top: 1.2em;">Account data</h3>
       <p>
         Creating an account is optional. If you do, we store the username you choose, a
-        cryptographically hashed version of your password (we never store or see your actual
-        password), your streak, your stats, your history of completed daily puzzles, and the
-        usernames of any friends you add. This lets your progress sync across devices when you
-        log in. We never ask for an email address, a real name, or any other personal detail. If
+        cryptographically hashed version of your password, your streak, your stats, your history
+        of completed daily puzzles, and the
+        usernames of any friends you add. Your password is transmitted to our API over HTTPS
+        when you register or sign in so it can be hashed or checked; it is not stored as plain
+        text. Session records are stored to authenticate your device. This lets your progress
+        sync across devices when you log in. We never ask for an email address, a real name, or any other personal detail. If
         you appear on the leaderboard, other players see only your username and your streak
         numbers.
       </p>
@@ -89,7 +104,9 @@
           <strong>PokeAPI</strong> (pokeapi.co): the Pokémon data behind the clues is compiled
           into the site ahead of time, so playing sends no requests to PokeAPI. The artwork shown
           on the results screen is still loaded from PokeAPI's public sprite files on GitHub when
-          a round ends. No personal data is sent as part of those requests.
+          a round ends, with fallback images available from Pokémon DB. These image providers
+          receive standard request information, such as your IP address and browser details.
+          We do not include your account credentials or guess history in artwork requests.
         </li>
         <li>
           <strong>Google Fonts</strong>: the site loads fonts from Google's font CDN, which may

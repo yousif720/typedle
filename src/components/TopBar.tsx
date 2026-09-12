@@ -47,7 +47,7 @@ export function TopBar({
         </IconButton>
       </div>
 
-      <span className="topbar-brand">TypeDle</span>
+      <span aria-hidden="true" />
 
       <div className="topbar-group">
         <IconButton label="Leaderboard" onClick={onOpenLeaderboard}>

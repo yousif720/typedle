@@ -1500,3 +1500,335 @@
     padding: var(--space-2);
   }
 }
+
+/* Games edition. Grid tracks reserve space before any clues are revealed. */
+.app-shell { height: 100dvh; min-height: 0; overflow: hidden; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
+.topbar { position: relative; flex: none; width: 100%; max-width: 960px; margin: 0 auto; padding: 6px 0; background: transparent; backdrop-filter: none; border-bottom-color: var(--border); }
+.topbar-brand { font-family: var(--font-sans); text-transform: none; letter-spacing: .02em; font-style: normal; color: var(--text); }
+.topbar-account { border-radius: 2px; }
+.app-main { flex: 1; min-height: 0; max-width: 960px; padding: 0 0 max(8px, env(safe-area-inset-bottom)); gap: 0; }
+.brand { flex: none; padding: clamp(6px, 1.8dvh, 20px) 0 12px; border-bottom: 0; }
+.edition-label { font-size: 10px; text-transform: uppercase; letter-spacing: .22em; font-weight: 600; }
+.typedle-logo { width: auto; font-family: var(--font-sans); font-size: clamp(38px, 6dvh, 58px); font-weight: 900; line-height: 1.05; letter-spacing: -.055em; }
+.masthead-period { color: var(--text-muted); }
+.tagline { display: block; font-family: var(--font-sans); font-size: 14px; font-style: normal; margin-top: 5px; }
+.game { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr); grid-template-rows: 48px minmax(0, 1fr) 44px 36px; column-gap: 28px; row-gap: 10px; padding-top: 8px; }
+.hud { grid-column: 1 / -1; padding: 0 0 8px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.hud-chip { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 8px; }
+.hud-chip-value { font-family: var(--font-sans); font-size: 19px; }
+.hud-chip-label { font-size: 9px; }
+.board { grid-column: 1; grid-row: 2; min-height: 0; display: grid; grid-template-rows: 1.3fr 1fr 1fr 1.3fr 1fr; gap: 0; counter-reset: clue; }
+.board-row { counter-increment: clue; min-height: 0; display: grid; grid-template-columns: 116px minmax(0, 1fr); align-items: center; justify-items: stretch; padding: 4px 0; gap: 12px; border-bottom: 0; border-radius: 0; }
+.board-row[data-revealed='true'] { background: transparent; }
+.row-label { color: var(--text); font-family: var(--font-sans); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.row-label::before { content: none; display: block; font-family: var(--font-sans); font-size: 9px; font-weight: 400; letter-spacing: .12em; color: var(--text-faint); }
+.row-content { height: 100%; min-height: 0; min-width: 0; align-items: center; justify-content: flex-start; overflow: auto; scrollbar-width: thin; }
+.tile-stack { flex-direction: row; gap: 6px; flex: none; }
+.tile-group { flex-wrap: nowrap; justify-content: flex-start; gap: 4px; }
+.tile { min-width: 36px; min-height: 36px; border-width: 1px; background: transparent; border-radius: 0; flex-shrink: 0; }
+.tile-clue { min-width: 38px; min-height: 44px; padding: 3px; gap: 1px; }
+.tile-clue .type-icon { width: 23px; height: 23px; filter: none; }
+.tile-multiplier { font-size: 10px; }
+.tile-word { min-width: 0; min-height: 0; padding: 3px 0; border: 0; }
+.word-stack { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+.word-line { font-family: var(--font-sans); font-size: 17px; font-weight: 700; }
+.tile-locked { border: 2px solid var(--border); justify-content: center; font-family: var(--font-sans); font-style: normal; font-size: 21px; font-weight: 700; }
+.game > .guess-history { grid-column: 2; grid-row: 2 / -1; min-height: 0; padding-left: 24px; border-left: 1px solid var(--border); gap: 12px; overflow: auto; scrollbar-width: thin; }
+.guess-history-heading { flex: none; text-align: left; color: var(--text); padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: 10px; letter-spacing: .14em; }
+.guess-history-empty { padding: 20px 0; font-family: var(--font-sans); font-style: normal; font-size: 14px; text-align: left; max-width: 240px; line-height: 1.6; }
+.guess-history-item { padding: 10px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; border-radius: 0; gap: 8px; }
+.guess-history-name { font-family: var(--font-sans); font-size: 15px; font-weight: 700; }
+.guess-history-index { background: transparent; font-family: var(--font-sans); }
+.guess-bar { grid-row: 3; grid-column: 1; grid-template-columns: minmax(0, 1fr) 44px auto; gap: 6px; }
+.guess-field input { height: 44px; border-width: 1px; font-family: var(--font-sans); font-size: 16px; }
+.guess-bar .icon-button { width: 44px; height: 44px; border-width: 1px; }
+.guess-submit { grid-column: auto; padding: 0 18px; }
+.guess-picker { top: auto; bottom: calc(100% + 6px); max-height: min(260px, 40dvh); }
+.status { grid-column: 1; grid-row: 4; min-height: 0; overflow: auto; text-align: left; font-family: var(--font-sans); font-style: normal; font-size: 13px; }
+.site-footer { flex: none; flex-direction: row; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); gap: 8px; }
+.footer-actions, .footer-links { gap: 16px; }
+.footer-actions .footer-link { font-family: var(--font-sans); font-size: 14px; font-weight: 700; }
+.footer-links a, .footer-links .footer-link { font-size: 10px; }
+.modal-card { border-top: 1px solid var(--border); }
+.modal-title { font-family: var(--font-sans); }
+
+@media (max-width: 650px) {
+  .app-shell { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .topbar { grid-template-columns: auto 1fr auto; gap: 4px; }
+  .topbar-brand { font-size: 12px; }
+  .topbar .icon-button { width: 32px; height: 34px; }
+  .topbar-account { padding: 0 8px; }
+  .brand { padding: 6px 0 8px; }
+  .edition-label { font-size: 8px; }
+  .typedle-logo { font-size: clamp(32px, 5.5dvh, 46px); }
+  .tagline { font-size: 12px; margin-top: 2px; }
+  .game { grid-template-columns: minmax(0, 1fr); grid-template-rows: 36px minmax(0, 1fr) 44px 32px clamp(58px, 13dvh, 110px); row-gap: 6px; padding-top: 4px; }
+  .hud { padding-bottom: 4px; }
+  .hud-chip { gap: 5px; padding: 0 4px; }
+  .hud-chip-value { font-size: 15px; }
+  .hud-chip-label { font-size: 8px; }
+  .board-row { grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 2px 0; }
+  .row-label { font-size: 10px; }
+  .row-label::before { font-size: 8px; }
+  .word-line { font-size: 17px; }
+  .game > .guess-history { grid-column: 1; grid-row: 5; border-left: 0; border-top: 1px solid var(--border); padding: 5px 0 0; gap: 4px; }
+  .guess-history-heading { border: 0; padding: 0; font-size: 9px; }
+  .game .guess-history-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+  .game .guess-history-item { padding: 4px 0; gap: 4px; }
+  .game .guess-history-name { font-size: 14px; }
+  .game .guess-history-empty { max-width: none; padding: 0; font-size: 13px; }
+  .site-footer { margin-top: 5px; padding-top: 5px; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+  .footer-actions, .footer-links { gap: 12px; }
+  .footer-actions .footer-link { font-size: 12px; }
+}
+
+@media (max-height: 540px) {
+  .brand { padding: 3px 0; }
+  .edition-label, .tagline { display: none; }
+  .typedle-logo { font-size: 32px; }
+  .game { row-gap: 4px; }
+  .row-label::before { display: none; }
+  .tile-clue { min-height: 28px; min-width: 42px; flex-direction: row; padding: 2px; }
+  .tile-clue .type-icon { width: 18px; height: 18px; }
+  .tile { min-height: 26px; }
+  .tile-locked { font-size: 18px; }
+  .word-line { font-size: 14px; }
+  .site-footer { margin-top: 3px; padding-top: 3px; }
+}
+
+/* Bold game identity, neutral tiles, and a single sunny action color. */
+.typedle-logo { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.edition-label { display: none; }
+.topbar-brand { font-weight: 800; letter-spacing: -.03em; }
+.brand { padding: clamp(8px, 2dvh, 20px) 0 12px; }
+.tagline { color: var(--text); }
+.hud-chip-value { font-size: 16px; font-weight: 700; }
+.board { gap: 4px; padding: 4px 0; }
+.tile { border-width: 2px; }
+.tile-clue { min-width: 42px; min-height: 48px; border-color: var(--border) !important; background: var(--surface-muted); }
+.tile-clue.tone-immunity { border-color: var(--border-strong) !important; }
+.tile-locked { width: 44px; height: 44px; color: var(--border-strong); background: transparent; }
+.tile-word { border: 0; background: var(--surface-muted); padding: 10px 12px; }
+.guess-field input { border: 2px solid var(--border); border-radius: 4px; font-weight: 500; }
+.guess-submit { background: var(--puzzle-yellow); border-color: var(--puzzle-yellow); color: #121212; border-radius: 24px; }
+.guess-bar .icon-button { border-radius: 50%; }
+.guess-history-heading { letter-spacing: 0; text-transform: none; font-size: 15px; }
+.game > .guess-history { padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.guess-history-empty { line-height: 1.6; }
+.guess-history-index { font-family: var(--font-sans); }
+.footer-actions .footer-link { font-size: 12px; }
+.modal-card { border-radius: 10px; }
+.modal-title { font-weight: 800; letter-spacing: -.03em; }
+@media (max-width: 650px) {
+  .brand { padding: 8px 0; }
+  .board { gap: 2px; padding: 0; }
+  .tile-clue { min-width: 38px; min-height: 42px; }
+  .tile-locked { width: 38px; height: 38px; min-height: 0; }
+  .tile-word { padding: 6px 8px; }
+  .game > .guess-history { padding: 6px 10px; gap: 4px; }
+  .game .guess-history-heading { font-size: 12px; }
+  .game .guess-history-empty { font-size: 12px; }
+  .word-line { font-size: 14px; }
+}
+@media (max-height: 620px) {
+  .brand { padding: 4px 0; }
+  .tile-clue { min-height: 26px; min-width: 40px; flex-direction: row; padding: 2px; }
+  .tile-clue .type-icon { width: 18px; height: 18px; }
+  .tile-locked { width: 28px; height: 26px; min-width: 28px; min-height: 0; font-size: 16px; }
+  .tile-word { padding: 3px 6px; }
+  .word-line { font-size: 12px; }
+}
+
+
+/* Clues scale within their reserved row, including short phone viewports. */
+.puzzle-mark { width: .9em; height: .9em; flex: none; }
+.board .row-content { container-type: size; padding: 3px 2px; }
+.board .tile-stack, .board .tile-group { gap: 8px; }
+.board .tile-clue {
+  width: clamp(44px, 78cqh, 66px);
+  min-width: clamp(44px, 78cqh, 66px);
+  height: clamp(28px, 90cqh, 72px);
+  min-height: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 2px 3px rgb(0 0 0 / .04);
+}
+.board .tile-clue .type-icon { width: clamp(22px, 48cqh, 38px); height: clamp(22px, 48cqh, 38px); border-radius: 7px; }
+.board .tile-multiplier { font-size: 12px; font-weight: 800; line-height: 1.1; }
+.board .tile-word { min-height: 0; padding: clamp(4px, 15cqh, 14px) 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.board .word-line { font-size: clamp(14px, 35cqh, 23px); font-weight: 700; letter-spacing: -.025em; }
+.board .tile-locked { border-radius: 12px; border-width: 1px; }
+.type-chip { width: 30px; height: 30px; border-radius: 8px; }
+.type-chip .type-icon { width: 21px; height: 21px; border-radius: 4px; }
+@media (max-width: 650px) {
+  .board .tile-stack, .board .tile-group { gap: 6px; }
+  .board .tile-clue { width: clamp(42px, 72cqh, 56px); min-width: clamp(42px, 72cqh, 56px); }
+  .board .tile-word { padding-inline: 13px; }
+  .game .type-chip { width: 26px; height: 26px; }
+  .game .type-chip .type-icon { width: 18px; height: 18px; }
+}
+@media (max-height: 620px) {
+  .board .tile-clue { flex-direction: row; width: 52px; min-width: 52px; gap: 3px; padding: 2px; border-radius: 7px; }
+  .board .tile-clue .type-icon { width: 22px; height: 22px; }
+  .board .tile-multiplier { font-size: 10px; }
+  .board .tile-word { padding-block: 3px; border-radius: 7px; }
+}
+
+/* Center clue captions above their reserved answer areas. */
+.puzzle-mark { width: .66em; height: .66em; transform: translateY(-.13em) rotate(-14deg); }
+.board .board-row { grid-template-columns: minmax(0, 1fr); grid-template-rows: 16px minmax(0, 1fr); gap: 3px; padding: 2px 0; }
+.board .row-label { text-align: center; line-height: 16px; }
+.board .row-content { justify-content: safe center; }
+.board .tile-word { background: #fff; color: #121212; }
+@media (max-height: 620px) {
+  .board .board-row { grid-template-rows: 11px minmax(0, 1fr); gap: 1px; padding: 0; }
+  .board .row-label { font-size: 8px; line-height: 11px; }
+  .board .row-content { padding-block: 0; }
+  .board .tile-clue { height: min(100cqh, 32px); }
+  .board .tile-clue .type-icon { width: min(22px, 75cqh); height: min(22px, 75cqh); }
+  .board .tile-word { padding-block: 0; }
+  .board .word-line { font-size: clamp(10px, 70cqh, 14px); line-height: 1.1; }
+  .board .tile-locked { height: min(100cqh, 26px); }
+}
+
+/* Keep each caption attached to its clues, with an even rhythm between rows. */
+.board { width: 100%; height: 100%; max-height: 440px; align-self: center; }
+.board .board-row { grid-template-rows: 14px minmax(0, 1fr); gap: 4px; padding: 0; }
+.board .row-label { line-height: 14px; font-size: 10px; letter-spacing: .08em; color: var(--text-muted); }
+.board .row-content { align-items: flex-start; padding: 0 2px 3px; }
+.board .tile-clue, .board .tile-word, .board .tile-locked { border-radius: 9px; }
+.board .tile-clue { box-shadow: 0 1px 2px rgb(0 0 0 / .035); }
+@media (max-height: 620px) {
+  .board .board-row { grid-template-rows: 11px minmax(0, 1fr); gap: 2px; }
+  .board .row-label { font-size: 8px; line-height: 11px; }
+  .board .row-content { padding-block: 0; }
+}
+
+/* Larger screens use the full clue column; mobile keeps its compact scale. */
+@media (min-width: 651px) and (min-height: 621px) {
+  .board { max-height: none; }
+  .board .board-row { grid-template-rows: 18px minmax(0, 1fr); gap: 5px; }
+  .board .row-label { font-size: 12px; line-height: 18px; }
+  .board .tile-stack, .board .tile-group { gap: 10px; }
+  .board .tile-clue {
+    width: clamp(58px, 90cqh, 96px);
+    min-width: clamp(58px, 90cqh, 96px);
+    height: min(94cqh, 100px);
+    padding: 5px;
+    gap: 4px;
+    border-radius: 12px;
+  }
+  .board .tile-clue .type-icon { width: clamp(28px, 55cqh, 56px); height: clamp(28px, 55cqh, 56px); border-radius: 9px; }
+  .board .tile-multiplier { font-size: clamp(12px, 19cqh, 17px); }
+  .board .tile-word { padding: clamp(6px, 18cqh, 20px) clamp(20px, 30cqh, 32px); border-radius: 12px; }
+  .board .word-line { font-size: clamp(18px, 38cqh, 30px); }
+  .board .tile-locked { width: clamp(44px, 75cqh, 72px); height: clamp(36px, 80cqh, 76px); font-size: clamp(22px, 40cqh, 32px); }
+}
+
+/* Five equal lanes, each with its label and clue centered as one unit. */
+.board { grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 0; padding-block: 0; }
+.board .board-row {
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+}
+.board .row-label { flex: none; }
+.board .row-content {
+  flex: none;
+  height: min(80px, max(16px, calc(100cqh - 28px)));
+  align-items: center;
+  padding: 0 2px;
+}
+.board .row-region .row-content,
+.board .row-evolution .row-content,
+.board .row-ability .row-content { height: min(52px, max(16px, calc(100cqh - 28px))); }
+@media (min-width: 651px) and (min-height: 621px) {
+  .board .board-row { gap: 5px; }
+  .board .row-content { height: min(100px, max(24px, calc(100cqh - 35px))); }
+  .board .row-region .row-content,
+  .board .row-evolution .row-content,
+  .board .row-ability .row-content { height: min(64px, max(24px, calc(100cqh - 35px))); }
+}
+@media (max-height: 620px) {
+  .board .board-row { gap: 2px; }
+  .board .row-content { height: max(10px, calc(100cqh - 17px)); }
+  .board .row-region .row-content,
+  .board .row-evolution .row-content,
+  .board .row-ability .row-content { height: min(24px, max(10px, calc(100cqh - 17px))); }
+}
+
+/* One shared gap between every caption and card, and every card and caption. */
+.board { --clue-gap: clamp(8px, 1.5dvh, 16px); --clue-label-height: 14px; }
+.board .board-row { gap: var(--clue-gap); padding-block: calc(var(--clue-gap) / 2); }
+.board .row-label { height: var(--clue-label-height); line-height: var(--clue-label-height); }
+.board .row-content,
+.board .row-region .row-content,
+.board .row-evolution .row-content,
+.board .row-ability .row-content {
+  height: max(12px, calc(100cqh - var(--clue-label-height) - var(--clue-gap)));
+  padding-block: 0;
+}
+.board .tile-clue,
+.board .tile-word,
+.board .tile-locked { height: 100cqh; min-height: 0; padding-block: 0; }
+@media (max-height: 620px) {
+  .board { --clue-gap: 5px; --clue-label-height: 11px; }
+}
+
+/* Shared outer edges for type rows and both locked and revealed text clues. */
+.board .row-content { width: 100%; padding-inline: 0; }
+.board .tile-stack { width: 100%; min-width: 0; flex: 1; }
+.board .tile-stack > .tile-group { display: contents; }
+.board .tile-stack .tile-clue { flex: 1 0 42px; width: auto; min-width: 42px; }
+.board .row-region .tile-group,
+.board .row-evolution .tile-group,
+.board .row-ability .tile-group { width: 100%; }
+.board .row-region .tile,
+.board .row-evolution .tile,
+.board .row-ability .tile { width: 100%; }
+
+.board .row-resistance > .row-content > .tile-group { width: 100%; }
+.board .row-resistance .tile-locked { width: 100%; }
+
+/* Hover stays inside the row's clipping boundary so the full outline remains visible. */
+.board .tile-clue:hover {
+  transform: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.12);
+}
+
+/* Keep each multiplier group on its own line within the reserved type row. */
+.board { grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); }
+.board .tile-stack { height: 100%; flex-direction: column; gap: 4px; }
+.board .tile-stack > .tile-group {
+  display: flex;
+  container-type: size;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  gap: 6px;
+}
+.board .tile-stack .tile-clue {
+  height: 100cqh;
+  min-height: 0;
+  flex-direction: row;
+  gap: 6px;
+  padding: 0 3px;
+  border-radius: 7px;
+}
+.board .tile-stack .tile-clue .type-icon {
+  width: clamp(10px, 70cqh, 36px);
+  height: clamp(10px, 70cqh, 36px);
+  border-radius: 4px;
+}
+.board .tile-stack .tile-multiplier { font-size: clamp(9px, 40cqh, 14px); }
+.board .row-weakness .row-content,
+.board .row-resistance .row-content { height: max(12px, calc(100cqh - var(--clue-label-height) - var(--clue-gap))); }

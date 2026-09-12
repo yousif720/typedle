@@ -323,6 +323,7 @@ export default function App() {
 
       <main className="app-main">
         <div className="brand">
+          <span className="edition-label">The daily Pokémon puzzle</span>
           <h1 className="sr-only">TypeDle</h1>
           <TypeDleLogo />
           <p className="tagline">

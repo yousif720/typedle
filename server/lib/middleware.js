@@ -71,11 +71,23 @@ export function asyncRoute(handler) {
 }
 
 export function errorHandler(error, _req, res, _next) {
-  console.error('Unhandled API error:', error)
-
   if (res.headersSent) {
     return
   }
 
+  // express.json() rejects an unparseable or oversized body by throwing an
+  // error that already carries the right 4xx status. Reporting those as 500
+  // blames the server for what the client sent, and buries real faults in the
+  // logs alongside every bit of malformed traffic.
+  const status = Number.isInteger(error?.status) ? error.status : error?.statusCode
+
+  if (Number.isInteger(status) && status >= 400 && status < 500) {
+    res.status(status).json({
+      error: status === 413 ? 'That request was too large.' : 'That request could not be read.',
+    })
+    return
+  }
+
+  console.error('Unhandled API error:', error)
   res.status(500).json({ error: 'Something went wrong. Please try again.' })
 }
