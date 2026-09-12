@@ -288,11 +288,6 @@
   border-color: color-mix(in srgb, var(--success) 45%, var(--border));
 }
 
-.tile-clue.tone-immunity {
-  border-color: var(--border-strong);
-  background: var(--surface-muted);
-}
-
 .tile-multiplier {
   font-size: var(--text-xs);
   font-weight: 800;
@@ -1606,7 +1601,6 @@
 .board { gap: 4px; padding: 4px 0; }
 .tile { border-width: 2px; }
 .tile-clue { min-width: 42px; min-height: 48px; border-color: var(--border) !important; background: var(--surface-muted); }
-.tile-clue.tone-immunity { border-color: var(--border-strong) !important; }
 .tile-locked { width: 44px; height: 44px; color: var(--border-strong); background: transparent; }
 .tile-word { border: 0; background: var(--surface-muted); padding: 10px 12px; }
 .guess-field input { border: 2px solid var(--border); border-radius: 4px; font-weight: 500; }
